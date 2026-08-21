@@ -1,0 +1,95 @@
+name: Release
+
+# 触发：推送 v* tag（./scripts/release.sh 本地脚本创建的 tag 自动触发）
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 需要完整历史以生成 release notes
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com/
+          scope: "@illegal-xd"
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Build & package vsix
+        run: |
+          npm run build
+          npx vsce package --no-dependencies
+
+      - name: Generate release notes from commits
+        id: notes
+        run: |
+          LAST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ -n "$LAST_TAG" && "$LAST_TAG" != "v${VERSION}" ]]; then
+            RANGE="${LAST_TAG}..HEAD"
+          else
+            RANGE=""
+          fi
+          {
+            echo "# Advanced Multi Column v${VERSION}"
+            echo ""
+            if [[ -n "$RANGE" ]]; then
+              echo "## What's Changed (since ${LAST_TAG})"
+            else
+              echo "## What's Changed"
+            fi
+            echo ""
+            if [[ -n "$RANGE" ]]; then
+              git log "$RANGE" --pretty=format:'- %s' --no-merges
+            else
+              git log --pretty=format:'- %s' --no-merges
+            fi
+            echo ""
+          } > notes.md
+          echo "notes_file=notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: ${{ steps.notes.outputs.notes_file }}
+          files: |
+            multi-column-markdown-*.vsix
+
+      - name: Publish vsix to GitHub Packages (npm)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          VSIX_FILE="multi-column-markdown-${VERSION}.vsix"
+          TMP_DIR="$(mktemp -d)"
+          cp package.json README.md LICENSE "$TMP_DIR/" 2>/dev/null || true
+          cp "$VSIX_FILE" "$TMP_DIR/"
+          node -e "
+            const fs = require('fs');
+            const p = require(process.argv[1]);
+            p.name = '@illegal-xd/multi-column-markdown';
+            p.main = undefined;
+            p.scripts = {};
+            p.devDependencies = {};
+            p.files = [process.argv[2], 'README.md', 'LICENSE'];
+            fs.writeFileSync(process.argv[1], JSON.stringify(p, null, 2));
+          " "$TMP_DIR/package.json" "$VSIX_FILE"
+          cd "$TMP_DIR"
+          npm publish --access public
