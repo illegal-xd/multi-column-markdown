@@ -1,0 +1,248 @@
+/**
+ * Style token → CSS mapping.
+ *
+ * Ported from amatya-aditya/advanced-multi-column (AGPL-3.0). Obsidian CSS
+ * variables are mapped onto VSCode theme tokens so both the column editor
+ * webview and the native markdown preview follow the active theme.
+ */
+import type {ColumnBackgroundOption, ColumnStyleData, StyleColorOption} from "../types";
+
+export const BACKGROUND_CSS: Record<ColumnBackgroundOption, string> = {
+	transparent: "transparent",
+	primary: "var(--vscode-editor-background)",
+	secondary: "var(--vscode-sideBar-background)",
+	alt: "var(--vscode-editorWidget-background)",
+	"accent-soft": "color-mix(in srgb, var(--vscode-button-background) 14%, transparent)",
+	"red-soft": "rgba(239, 68, 68, 0.14)",
+	"orange-soft": "rgba(245, 158, 11, 0.14)",
+	"yellow-soft": "rgba(234, 179, 8, 0.14)",
+	"green-soft": "rgba(34, 197, 94, 0.14)",
+	"cyan-soft": "rgba(6, 182, 212, 0.14)",
+	"blue-soft": "rgba(59, 130, 246, 0.14)",
+	"pink-soft": "rgba(236, 72, 153, 0.14)",
+};
+
+/** Solid/opaque colors that correspond to each soft background – used for
+ *  the left-border accent stripe so it reads like a callout. */
+export const HEADER_BORDER_CSS: Record<string, string> = {
+	"accent-soft": "var(--vscode-button-background)",
+	"red-soft": "#ef4444",
+	"orange-soft": "#f59e0b",
+	"yellow-soft": "#eab308",
+	"green-soft": "#22c55e",
+	"cyan-soft": "#06b6d4",
+	"blue-soft": "#3b82f6",
+	"pink-soft": "#ec4899",
+	secondary: "var(--vscode-panel-border)",
+	alt: "var(--vscode-panel-border)",
+	primary: "var(--vscode-panel-border)",
+};
+
+export const COLOR_CSS: Record<StyleColorOption, string> = {
+	gray: "var(--vscode-panel-border)",
+	accent: "var(--vscode-button-background)",
+	muted: "var(--vscode-descriptionForeground)",
+	text: "var(--vscode-editor-foreground)",
+	red: "#ef4444",
+	orange: "#f59e0b",
+	yellow: "#eab308",
+	green: "#22c55e",
+	cyan: "#06b6d4",
+	blue: "#3b82f6",
+	pink: "#ec4899",
+};
+
+const COLUMN_STYLE_VAR_KEYS = [
+	"--columns-col-bg",
+	"--columns-col-text",
+	"--columns-col-border-color",
+	"--columns-col-border-width",
+	"--columns-col-horizontal-width",
+	"--columns-col-sep-color",
+	"--columns-col-sep-width",
+	"--columns-col-sep-style",
+] as const;
+
+const CONTAINER_STYLE_VAR_KEYS = [
+	"--columns-block-bg",
+	"--columns-block-text",
+	"--columns-block-border-color",
+	"--columns-block-border-width",
+	"--columns-block-horizontal-width",
+] as const;
+
+const SEPARATOR_STYLE_VALUES = new Set<string>(["solid", "dashed", "dotted", "double", "custom"]);
+
+function hasOwnKey<T extends object>(obj: T, key: PropertyKey): key is keyof T {
+	return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+export function toStyleData(style: unknown): ColumnStyleData | null {
+	if (typeof style !== "object" || style === null) return null;
+
+	const record = style as Record<string, unknown>;
+	const parsed: ColumnStyleData = {};
+
+	const background = record.background;
+	if (typeof background === "string" && hasOwnKey(BACKGROUND_CSS, background)) {
+		parsed.background = background as ColumnBackgroundOption;
+	}
+
+	const borderColor = record.borderColor;
+	if (typeof borderColor === "string" && hasOwnKey(COLOR_CSS, borderColor)) {
+		parsed.borderColor = borderColor as StyleColorOption;
+	}
+
+	const textColor = record.textColor;
+	if (typeof textColor === "string" && hasOwnKey(COLOR_CSS, textColor)) {
+		parsed.textColor = textColor as StyleColorOption;
+	}
+
+	if (typeof record.showBorder === "boolean") {
+		parsed.showBorder = record.showBorder;
+	}
+
+	if (typeof record.horizontalDividers === "boolean") {
+		parsed.horizontalDividers = record.horizontalDividers;
+	}
+
+	if (typeof record.separator === "boolean") {
+		parsed.separator = record.separator;
+	}
+
+	const separatorColor = record.separatorColor;
+	if (typeof separatorColor === "string" && hasOwnKey(COLOR_CSS, separatorColor)) {
+		parsed.separatorColor = separatorColor as StyleColorOption;
+	}
+
+	const separatorStyle = record.separatorStyle;
+	if (typeof separatorStyle === "string" && SEPARATOR_STYLE_VALUES.has(separatorStyle)) {
+		parsed.separatorStyle = separatorStyle as ColumnStyleData["separatorStyle"];
+	}
+
+	const separatorWidth = record.separatorWidth;
+	if (typeof separatorWidth === "number" && separatorWidth >= 1 && separatorWidth <= 8) {
+		parsed.separatorWidth = separatorWidth;
+	}
+
+	const separatorCustomChar = record.separatorCustomChar;
+	if (typeof separatorCustomChar === "string" && separatorCustomChar.length > 0 && separatorCustomChar.length <= 3) {
+		parsed.separatorCustomChar = separatorCustomChar;
+	}
+
+	if (typeof record.leftBorder === "boolean") {
+		parsed.leftBorder = record.leftBorder;
+	}
+
+	return Object.keys(parsed).length > 0 ? parsed : null;
+}
+
+export function hasColumnStyle(style: unknown): boolean {
+	return toStyleData(style) !== null;
+}
+
+function buildColumnCssProps(parsed: ColumnStyleData): Record<string, string> {
+	const cssProps: Record<string, string> = {};
+
+	if (parsed.background) {
+		cssProps["--columns-col-bg"] = BACKGROUND_CSS[parsed.background];
+	}
+	if (parsed.textColor) {
+		cssProps["--columns-col-text"] = COLOR_CSS[parsed.textColor];
+	}
+
+	const hasBorderSignals =
+		parsed.showBorder !== undefined ||
+		parsed.horizontalDividers !== undefined ||
+		parsed.borderColor !== undefined;
+
+	if (hasBorderSignals) {
+		const effectiveBorderColor = COLOR_CSS[parsed.borderColor ?? "gray"];
+		const showBorder = parsed.showBorder ?? parsed.borderColor !== undefined;
+		const showHorizontal = parsed.horizontalDividers ?? false;
+
+		cssProps["--columns-col-border-color"] = effectiveBorderColor;
+		cssProps["--columns-col-border-width"] = showBorder ? "1px" : "0px";
+		if (showHorizontal) cssProps["--columns-col-horizontal-width"] = "1px";
+	}
+
+	if (parsed.separator) {
+		cssProps["--columns-col-sep-color"] = COLOR_CSS[parsed.separatorColor ?? "gray"];
+		cssProps["--columns-col-sep-width"] = `${parsed.separatorWidth ?? 1}px`;
+		if (parsed.separatorStyle && parsed.separatorStyle !== "custom") {
+			cssProps["--columns-col-sep-style"] = parsed.separatorStyle;
+		}
+	}
+
+	return cssProps;
+}
+
+function buildContainerCssProps(parsed: ColumnStyleData): Record<string, string> {
+	const cssProps: Record<string, string> = {};
+
+	if (parsed.background) {
+		cssProps["--columns-block-bg"] = BACKGROUND_CSS[parsed.background];
+	}
+	if (parsed.textColor) {
+		cssProps["--columns-block-text"] = COLOR_CSS[parsed.textColor];
+	}
+
+	const hasBorderSignals =
+		parsed.showBorder !== undefined ||
+		parsed.horizontalDividers !== undefined ||
+		parsed.borderColor !== undefined;
+
+	if (hasBorderSignals) {
+		const effectiveBorderColor = COLOR_CSS[parsed.borderColor ?? "gray"];
+		const showBorder = parsed.showBorder ?? parsed.borderColor !== undefined;
+		const showHorizontal = parsed.horizontalDividers ?? false;
+
+		cssProps["--columns-block-border-color"] = effectiveBorderColor;
+		cssProps["--columns-block-border-width"] = showBorder ? "1px" : "0px";
+		if (showHorizontal) cssProps["--columns-block-horizontal-width"] = "1px";
+	}
+
+	return cssProps;
+}
+
+function applyStyleVars(
+	element: HTMLElement,
+	style: unknown,
+	varKeysToClear: ReadonlyArray<string>,
+	cssBuilder: (parsed: ColumnStyleData) => Record<string, string>,
+): void {
+	const clearProps: Record<string, string> = {};
+	for (const key of varKeysToClear) clearProps[key] = "";
+	applyCssProps(element, clearProps);
+
+	const parsed = toStyleData(style);
+	if (!parsed) {
+		element.classList.remove("columns-custom-style");
+		return;
+	}
+
+	element.classList.add("columns-custom-style");
+	applyCssProps(element, cssBuilder(parsed));
+}
+
+/** Set multiple CSS custom properties on an element. */
+export function applyCssProps(element: HTMLElement, props: Record<string, string>): void {
+	for (const [key, value] of Object.entries(props)) {
+		element.style.setProperty(key, value);
+	}
+}
+
+export function applyColumnStyle(element: HTMLElement, style: unknown): void {
+	applyStyleVars(element, style, COLUMN_STYLE_VAR_KEYS, buildColumnCssProps);
+	const parsed = toStyleData(style);
+	element.classList.toggle("columns-left-border", !!parsed?.leftBorder);
+}
+
+export function applyContainerStyle(element: HTMLElement, style: unknown): void {
+	applyStyleVars(
+		element,
+		style,
+		CONTAINER_STYLE_VAR_KEYS,
+		buildContainerCssProps,
+	);
+}

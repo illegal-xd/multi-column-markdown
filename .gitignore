@@ -1,0 +1,12 @@
+node_modules/
+out/
+dist/
+*.vsix
+.DS_Store
+# Tooling/session artifacts
+.aspirecode/
+# Local machine config (not for the repo)
+.npmrc
+# Environment-generated pnpm files (not part of this project)
+pnpm-lock.yaml
+pnpm-workspace.yaml

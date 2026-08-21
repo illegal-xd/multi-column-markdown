@@ -1,0 +1,386 @@
+{
+  "name": "multi-column-markdown",
+  "displayName": "Advanced Multi Column",
+  "description": "Create interactive, nested multi-column layouts in Markdown — marker-based syntax (%% col-start %%), with a full-featured column editor, native preview rendering, drag-to-resize, drag-to-reorder, style popover and wikilink support.",
+  "version": "0.1.0",
+  "publisher": "local",
+  "license": "AGPL-3.0",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "markdown",
+    "columns",
+    "multi-column",
+    "layout",
+    "preview"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "multiColumnMarkdown.insert2",
+        "title": "Insert 2-wide layout",
+        "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.insert3",
+        "title": "Insert 3-wide layout",
+        "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.insert4",
+        "title": "Insert 4-wide layout",
+        "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.insertLayout",
+        "title": "Insert layout (custom count)",
+        "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.insertNested",
+        "title": "Insert nested layout (parent + children)",
+        "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.insertSidebar",
+        "title": "Insert sidebar + content layout",
+        "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.insertStacked",
+        "title": "Insert stacked + wide layout",
+        "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.insertCornell",
+        "title": "Insert Cornell notes layout",
+        "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.insertKanban",
+        "title": "Insert Kanban board layout",
+        "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.insertInfoCard",
+        "title": "Insert info card layout",
+        "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.openPreview",
+        "title": "Open Markdown Preview (Columns)",
+        "category": "Advanced Multi Column"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "submenu": "multiColumnMarkdown.insertMenu",
+          "group": "1_insert@1",
+          "when": "editorLangId == markdown"
+        }
+      ],
+      "multiColumnMarkdown.insertMenu": [
+        {
+          "command": "multiColumnMarkdown.insert2",
+          "group": "insert@1"
+        },
+        {
+          "command": "multiColumnMarkdown.insert3",
+          "group": "insert@2"
+        },
+        {
+          "command": "multiColumnMarkdown.insert4",
+          "group": "insert@3"
+        },
+        {
+          "command": "multiColumnMarkdown.insertLayout",
+          "group": "insert@4"
+        },
+        {
+          "command": "multiColumnMarkdown.insertNested",
+          "group": "templates@1"
+        },
+        {
+          "command": "multiColumnMarkdown.insertSidebar",
+          "group": "templates@2"
+        },
+        {
+          "command": "multiColumnMarkdown.insertStacked",
+          "group": "templates@3"
+        },
+        {
+          "command": "multiColumnMarkdown.insertCornell",
+          "group": "templates@4"
+        },
+        {
+          "command": "multiColumnMarkdown.insertKanban",
+          "group": "templates@5"
+        },
+        {
+          "command": "multiColumnMarkdown.insertInfoCard",
+          "group": "templates@6"
+        }
+      ]
+    },
+    "submenus": [
+      {
+        "id": "multiColumnMarkdown.insertMenu",
+        "label": "Insert Column Layout"
+      }
+    ],
+    "configuration": {
+      "title": "Advanced Multi Column",
+      "properties": {
+        "multiColumnMarkdown.defaultColumnCount": {
+          "type": "number",
+          "default": 2,
+          "minimum": 2,
+          "maximum": 6,
+          "markdownDescription": "Default number of columns used by the **Insert layout (custom count)** command."
+        },
+        "multiColumnMarkdown.minColumnWidthPercent": {
+          "type": "number",
+          "default": 10,
+          "minimum": 5,
+          "maximum": 30,
+          "markdownDescription": "Minimum column width (%) enforced when resizing columns by dragging the divider."
+        },
+        "multiColumnMarkdown.inheritStyleOnAdd": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "When adding a column, inherit the style of the neighboring column."
+        },
+        "multiColumnMarkdown.enableSlashSuggest": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show slash-command suggestions (`/`) inside column editors."
+        },
+        "multiColumnMarkdown.styleTargetMode": {
+          "type": "string",
+          "enum": [
+            "all",
+            "specific"
+          ],
+          "enumDescriptions": [
+            "Apply container appearance to all columns",
+            "Apply container appearance to a specific column index"
+          ],
+          "default": "all",
+          "markdownDescription": "Style target for the container appearance defaults below."
+        },
+        "multiColumnMarkdown.styleTargetColumnIndex": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 6,
+          "markdownDescription": "Column index (1-based) used when `styleTargetMode` is `specific`."
+        },
+        "multiColumnMarkdown.containerBackground": {
+          "type": "string",
+          "enum": [
+            "transparent",
+            "primary",
+            "secondary",
+            "alt",
+            "accent-soft",
+            "red-soft",
+            "orange-soft",
+            "yellow-soft",
+            "green-soft",
+            "cyan-soft",
+            "blue-soft",
+            "pink-soft"
+          ],
+          "enumDescriptions": [
+            "Transparent",
+            "Primary background",
+            "Secondary background",
+            "Muted background",
+            "Accent tint",
+            "Red tint",
+            "Orange tint",
+            "Yellow tint",
+            "Green tint",
+            "Cyan tint",
+            "Blue tint",
+            "Pink tint"
+          ],
+          "default": "primary",
+          "markdownDescription": "Default container background."
+        },
+        "multiColumnMarkdown.showContainerBorder": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show the container border."
+        },
+        "multiColumnMarkdown.containerBorderWidthPx": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 8,
+          "markdownDescription": "Container border width (px)."
+        },
+        "multiColumnMarkdown.containerBorderColor": {
+          "type": "string",
+          "enum": [
+            "gray",
+            "accent",
+            "muted",
+            "text",
+            "red",
+            "orange",
+            "yellow",
+            "green",
+            "cyan",
+            "blue",
+            "pink"
+          ],
+          "default": "gray",
+          "markdownDescription": "Container border color."
+        },
+        "multiColumnMarkdown.containerCornerRadiusPx": {
+          "type": "number",
+          "default": 8,
+          "minimum": 0,
+          "maximum": 24,
+          "markdownDescription": "Container corner radius (px)."
+        },
+        "multiColumnMarkdown.containerTextColor": {
+          "type": "string",
+          "enum": [
+            "gray",
+            "accent",
+            "muted",
+            "text",
+            "red",
+            "orange",
+            "yellow",
+            "green",
+            "cyan",
+            "blue",
+            "pink"
+          ],
+          "default": "text",
+          "markdownDescription": "Container text color."
+        },
+        "multiColumnMarkdown.verticalDividerWidthPx": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 8,
+          "markdownDescription": "Width of the divider between columns (px)."
+        },
+        "multiColumnMarkdown.verticalDividerStyle": {
+          "type": "string",
+          "enum": [
+            "solid",
+            "dashed",
+            "dotted",
+            "double"
+          ],
+          "default": "solid",
+          "markdownDescription": "Line style of the divider between columns."
+        },
+        "multiColumnMarkdown.verticalDividerColor": {
+          "type": "string",
+          "enum": [
+            "gray",
+            "accent",
+            "muted",
+            "text",
+            "red",
+            "orange",
+            "yellow",
+            "green",
+            "cyan",
+            "blue",
+            "pink"
+          ],
+          "default": "gray",
+          "markdownDescription": "Color of the divider between columns."
+        },
+        "multiColumnMarkdown.enableHeaders": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Render column headers from `!type: Title` first lines. Configure header types with the **Advanced Multi Column: Configure Column Headers** command."
+        },
+        "multiColumnMarkdown.headerTypes": {
+          "type": "array",
+          "default": [
+            {
+              "id": "note",
+              "icon": "pencil",
+              "background": "blue-soft",
+              "textColor": "blue",
+              "fontSize": 0.85,
+              "fontWeight": 600
+            },
+            {
+              "id": "info",
+              "icon": "info",
+              "background": "cyan-soft",
+              "textColor": "cyan",
+              "fontSize": 0.85,
+              "fontWeight": 600
+            },
+            {
+              "id": "tip",
+              "icon": "lightbulb",
+              "background": "green-soft",
+              "textColor": "green",
+              "fontSize": 0.85,
+              "fontWeight": 600
+            },
+            {
+              "id": "warning",
+              "icon": "triangle-alert",
+              "background": "orange-soft",
+              "textColor": "orange",
+              "fontSize": 0.85,
+              "fontWeight": 600
+            },
+            {
+              "id": "danger",
+              "icon": "zap",
+              "background": "red-soft",
+              "textColor": "red",
+              "fontSize": 0.85,
+              "fontWeight": 600
+            }
+          ],
+          "markdownDescription": "Column header type presets. Edit via **Advanced Multi Column: Configure Column Headers** or directly as JSON."
+        }
+      }
+    },
+    "markdown.previewStyles": [
+      "./media/previewStyle.css"
+    ],
+    "markdown.markdownItPlugins": true
+  },
+  "scripts": {
+    "build": "tsc -noEmit -p tsconfig.json && node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "package": "npm run build && vsce package",
+    "lint": "tsc -noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/codicons": "^0.0.46-24",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.20.0",
+    "markdown-it": "^14.1.0",
+    "typescript": "^5.4.0"
+  },
+  "packageManager": "pnpm@11.0.9+sha512.34ce82e6780233cf9cad8685029a8f81d2e06196c5a9bad98879f7424940c6817c4e4524fb7d38b8553ceed48b9758b8ebaf1abd3600c232c4c8cf7366086f38"
+}

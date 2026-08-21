@@ -1,0 +1,333 @@
+/**
+ * Column data operations (add/remove/move/path updates).
+ *
+ * Ported 1:1 from amatya-aditya/advanced-multi-column (AGPL-3.0), minus the
+ * CodeMirror/EditorView coupling: the VSCode host performs document edits, so
+ * `dispatchUpdate` is replaced by pure functions returning the next document
+ * text (see `serializeRegionUpdate` / `applyRegionEdit`).
+ */
+import {findColumnRegions, serializeColumns} from "./parser";
+import type {ColumnData, ColumnLayout, ColumnRegion, ColumnStyleData} from "../types";
+import type {ContainerPath} from "../types";
+
+/**
+ * Serialize a full region update (columns + optional style/layout) back into
+ * the marker document — equivalent to the reference `dispatchUpdate`.
+ */
+export function serializeRegionUpdate(
+	region: Pick<ColumnRegion, "from" | "to">,
+	columns: ColumnData[],
+	containerStyle?: ColumnStyleData,
+	layout?: ColumnLayout,
+): {from: number; to: number; text: string} {
+	return {
+		from: region.from,
+		to: region.to,
+		text: serializeColumns(
+			columns,
+			containerStyle !== undefined ? containerStyle : undefined,
+			layout,
+		),
+	};
+}
+
+/** Copy the neighbor's style if the "Inherit style on add" setting is on. */
+function inheritedStyle(neighbor: ColumnData, inheritStyleOnAdd: boolean): ColumnStyleData | undefined {
+	if (!inheritStyleOnAdd) return undefined;
+	return neighbor.style ? {...neighbor.style} : undefined;
+}
+
+export function insertColumnAfter(
+	columns: ColumnData[],
+	index: number,
+	inheritStyleOnAdd: boolean,
+): ColumnData[] {
+	const neighbor = columns[index];
+	const style = neighbor ? inheritedStyle(neighbor, inheritStyleOnAdd) : undefined;
+	if (neighbor?.stacked && neighbor.stacked > 0) {
+		// Adding inside a stack group: keep all widths intact, new column
+		// inherits the stacked group ID and gets width 0 (group width is max).
+		const result = [...columns];
+		result.splice(index + 1, 0, {content: "", widthPercent: 0, stacked: neighbor.stacked, style});
+		return result;
+	}
+	// Adding a non-stacked column: reset all widths to equal distribution.
+	const normalized = columns.map((col) => ({...col, widthPercent: 0}));
+	normalized.splice(index + 1, 0, {content: "", widthPercent: 0, style});
+	return normalized;
+}
+
+/**
+ * Insert a column after the given index with the opposite stacking behavior:
+ * - If the neighbor is stacked, insert a non-stacked column.
+ * - If the neighbor is non-stacked, insert a stacked column (inheriting or
+ *   creating a stack group with the neighbor).
+ */
+export function insertColumnAfterOpposite(
+	columns: ColumnData[],
+	index: number,
+	inheritStyleOnAdd: boolean,
+): ColumnData[] {
+	const neighbor = columns[index];
+	const style = neighbor ? inheritedStyle(neighbor, inheritStyleOnAdd) : undefined;
+	if (neighbor?.stacked && neighbor.stacked > 0) {
+		// Neighbor is stacked → insert a non-stacked column (no stack ID).
+		const result = [...columns];
+		result.splice(index + 1, 0, {content: "", widthPercent: 0, style});
+		return result;
+	}
+	// Neighbor is non-stacked → create a new stack group with the neighbor.
+	let maxStackId = 0;
+	for (const col of columns) {
+		if (col.stacked && col.stacked > maxStackId) maxStackId = col.stacked;
+	}
+	const newStackId = maxStackId + 1;
+	const result = columns.map((col, i) => {
+		if (i === index) return {...col, widthPercent: 0, stacked: newStackId};
+		return {...col, widthPercent: 0};
+	});
+	result.splice(index + 1, 0, {content: "", widthPercent: 0, stacked: newStackId, style});
+	return result;
+}
+
+export function normalizeColumnWidths(columns: ColumnData[]): ColumnData[] {
+	return columns.map((col) => ({...col, widthPercent: 0}));
+}
+
+/**
+ * Remove a column while preserving widths of unrelated columns.
+ * Only resets widths within the same stack group as the removed column,
+ * or resets all widths if a non-stacked column is removed.
+ */
+export function removeColumnPreservingWidths(
+	columns: ColumnData[],
+	removeIndex: number,
+): ColumnData[] {
+	const removedCol = columns[removeIndex];
+	const filtered = columns.filter((_, idx) => idx !== removeIndex);
+	const removedStackId = removedCol?.stacked;
+	if (!removedStackId || removedStackId <= 0) {
+		// Removing a non-stacked column: reset all widths (group count changed)
+		return filtered.map((col) => ({...col, widthPercent: 0}));
+	}
+	// Removing a stacked column: find its stack group siblings (same group ID)
+	// and clear their widths (the group width is max of members).
+	const groupIndices = new Set<number>();
+	for (let j = removeIndex - 1; j >= 0 && columns[j]!.stacked === removedStackId; j--) {
+		groupIndices.add(j);
+	}
+	for (let j = removeIndex + 1; j < columns.length && columns[j]!.stacked === removedStackId; j++) {
+		groupIndices.add(j);
+	}
+	if (groupIndices.size === 0) {
+		return filtered;
+	}
+	return filtered.map((col, newIdx) => {
+		const origIdx = newIdx >= removeIndex ? newIdx + 1 : newIdx;
+		if (groupIndices.has(origIdx)) {
+			return {...col, widthPercent: 0};
+		}
+		return col;
+	});
+}
+
+export function addChildColumnToContent(content: string): string {
+	const nestedRegions = findColumnRegions(content);
+	if (nestedRegions.length > 0) {
+		const region = nestedRegions[nestedRegions.length - 1]!;
+		const nextChildren = [
+			...region.columns.map((child) => ({...child, widthPercent: 0})),
+			{content: "", widthPercent: 0},
+		];
+		return (
+			content.slice(0, region.from) +
+			serializeColumns(nextChildren, region.containerStyle, region.layout) +
+			content.slice(region.to)
+		);
+	}
+
+	const trailingWhitespace = content.match(/\s*$/)?.[0] ?? "";
+	const withoutTrailing = content.slice(0, content.length - trailingWhitespace.length);
+	const separator = withoutTrailing.length > 0 ? "\n\n" : "";
+	const nestedBlock = serializeColumns([{content: "", widthPercent: 0}]);
+	return `${withoutTrailing}${separator}${nestedBlock}${trailingWhitespace}`;
+}
+
+export function removeColumnAtPath(
+	columns: ColumnData[],
+	path: ContainerPath,
+	removeIndex: number,
+): {nextColumns: ColumnData[] | null; removed: boolean} {
+	if (path.length === 0) {
+		if (removeIndex < 0 || removeIndex >= columns.length) {
+			return {nextColumns: columns, removed: false};
+		}
+		if (columns.length <= 1) {
+			return {nextColumns: null, removed: true};
+		}
+		return {
+			nextColumns: removeColumnPreservingWidths(columns, removeIndex),
+			removed: true,
+		};
+	}
+
+	const [head, ...rest] = path;
+	if (!head) return {nextColumns: columns, removed: false};
+	const parentColumn = columns[head.columnIndex];
+	if (!parentColumn) return {nextColumns: columns, removed: false};
+
+	const regions = findColumnRegions(parentColumn.content).sort((a, b) => a.from - b.from);
+	const region = regions[head.regionIndex];
+	if (!region) return {nextColumns: columns, removed: false};
+
+	const nestedResult = removeColumnAtPath(region.columns, rest, removeIndex);
+	if (!nestedResult.removed) return {nextColumns: columns, removed: false};
+
+	const nextContent =
+		nestedResult.nextColumns === null
+			? parentColumn.content.slice(0, region.from) +
+			  parentColumn.content.slice(region.to)
+			: parentColumn.content.slice(0, region.from) +
+			  serializeColumns(nestedResult.nextColumns, region.containerStyle, region.layout) +
+			  parentColumn.content.slice(region.to);
+
+	const nextColumns = columns.map((column, index) =>
+		index === head.columnIndex ? {...column, content: nextContent} : column,
+	);
+	return {nextColumns, removed: true};
+}
+
+export function isSameContainerPath(a: ContainerPath, b: ContainerPath): boolean {
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) {
+		const left = a[i]!;
+		const right = b[i]!;
+		if (left.columnIndex !== right.columnIndex) return false;
+		if (left.regionIndex !== right.regionIndex) return false;
+	}
+	return true;
+}
+
+export function isDestinationInsideMovedColumn(
+	sourcePath: ContainerPath,
+	sourceIndex: number,
+	destinationPath: ContainerPath,
+): boolean {
+	if (destinationPath.length <= sourcePath.length) return false;
+	for (let i = 0; i < sourcePath.length; i++) {
+		const left = sourcePath[i]!;
+		const right = destinationPath[i]!;
+		if (left.columnIndex !== right.columnIndex) return false;
+		if (left.regionIndex !== right.regionIndex) return false;
+	}
+	const next = destinationPath[sourcePath.length];
+	return next?.columnIndex === sourceIndex;
+}
+
+export function getColumnsAtPath(columns: ColumnData[], path: ContainerPath): ColumnData[] | null {
+	if (path.length === 0) return columns;
+	const [head, ...rest] = path;
+	if (!head) return columns;
+	const col = columns[head.columnIndex];
+	if (!col) return null;
+	const regions = findColumnRegions(col.content).sort((a, b) => a.from - b.from);
+	const region = regions[head.regionIndex];
+	if (!region) return null;
+	return getColumnsAtPath(region.columns, rest);
+}
+
+export function updateColumnsAtPath(
+	columns: ColumnData[],
+	path: ContainerPath,
+	updater: (target: ColumnData[]) => ColumnData[],
+): ColumnData[] {
+	if (path.length === 0) return updater(columns);
+	const [head, ...rest] = path;
+	if (!head) return updater(columns);
+	return columns.map((col, index) => {
+		if (index !== head.columnIndex) return col;
+		const regions = findColumnRegions(col.content).sort((a, b) => a.from - b.from);
+		const region = regions[head.regionIndex];
+		if (!region) return col;
+		const nextRegionColumns = updateColumnsAtPath(region.columns, rest, updater);
+		const nextContent =
+			col.content.slice(0, region.from) +
+			serializeColumns(nextRegionColumns, region.containerStyle, region.layout) +
+			col.content.slice(region.to);
+		return {...col, content: nextContent};
+	});
+}
+
+/**
+ * Resolve the stack group ID for a column being inserted at `insertAt`
+ * based on its neighbors.
+ */
+function resolveStackedForInsert(target: ColumnData[], insertAt: number): number {
+	const prev = target[insertAt - 1]?.stacked;
+	const next = target[insertAt]?.stacked;
+	if (prev && prev > 0 && next && next > 0 && prev === next) return prev;
+	if (prev && prev > 0) return prev;
+	if (next && next > 0) return next;
+	return 0;
+}
+
+export function moveColumnBetweenContainers(
+	region: ColumnRegion,
+	sourcePath: ContainerPath,
+	sourceIndex: number,
+	destinationPath: ContainerPath,
+	destinationIndex: number,
+): {columns: ColumnData[]; containerStyle?: ColumnStyleData; layout?: ColumnLayout} | null {
+	if (isDestinationInsideMovedColumn(sourcePath, sourceIndex, destinationPath)) return null;
+
+	const rootColumns = region.columns;
+	const sourceColumns = getColumnsAtPath(rootColumns, sourcePath);
+	const destinationColumns = getColumnsAtPath(rootColumns, destinationPath);
+	if (!sourceColumns || !destinationColumns) return null;
+	if (sourceIndex < 0 || sourceIndex >= sourceColumns.length) return null;
+	if (destinationIndex < 0 || destinationIndex > destinationColumns.length) return null;
+
+	const sameContainer = isSameContainerPath(sourcePath, destinationPath);
+
+	const moving = sourceColumns[sourceIndex];
+	if (!moving) return null;
+
+	if (sameContainer) {
+		const adjustedIndex = sourceIndex < destinationIndex
+			? destinationIndex - 1
+			: destinationIndex;
+		if (adjustedIndex === sourceIndex) return null;
+		const reordered = [...sourceColumns];
+		const [removed] = reordered.splice(sourceIndex, 1);
+		if (!removed) return null;
+		const shouldStack = resolveStackedForInsert(reordered, adjustedIndex);
+		reordered.splice(adjustedIndex, 0, {...removed, stacked: shouldStack > 0 ? shouldStack : undefined});
+		const nextRoot = updateColumnsAtPath(rootColumns, sourcePath, () => reordered);
+		return {columns: nextRoot, containerStyle: region.containerStyle, layout: region.layout};
+	}
+
+	const removed = removeColumnAtPath(rootColumns, sourcePath, sourceIndex);
+	const sourceRemovedRoot = removed.nextColumns;
+	if (!removed.removed || !sourceRemovedRoot) return null;
+
+	const nextRoot = updateColumnsAtPath(sourceRemovedRoot, destinationPath, (target) => {
+		const insertAt = Math.max(0, Math.min(destinationIndex, target.length));
+		const shouldStack = resolveStackedForInsert(target, insertAt);
+		const inserted = [...target];
+		inserted.splice(insertAt, 0, {...moving, widthPercent: 0, stacked: shouldStack > 0 ? shouldStack : undefined});
+		return normalizeColumnWidths(inserted);
+	});
+
+	return {columns: nextRoot, containerStyle: region.containerStyle, layout: region.layout};
+}
+
+export function buildStandaloneBlockInsertion(doc: string, cursorPos: number, block: string): string {
+	const beforeChar = cursorPos > 0 ? doc[cursorPos - 1] : "";
+	const afterChar = cursorPos < doc.length ? doc[cursorPos] : "";
+
+	const parts: string[] = [];
+	if (beforeChar && beforeChar !== "\n") parts.push("\n");
+	parts.push(block);
+	if (afterChar && afterChar !== "\n") parts.push("\n");
+	return parts.join("");
+}

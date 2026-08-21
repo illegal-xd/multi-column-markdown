@@ -1,0 +1,183 @@
+/* ==========================================================================
+   Advanced Multi Column — native Markdown preview styles
+   (VSCode equivalent of the reference plugin's Reading View layout.css)
+   ========================================================================== */
+
+.columns-container {
+	--columns-block-default-border-width: 1px;
+	--columns-block-default-border-color: var(--vscode-panel-border);
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-items: stretch;
+	width: 100%;
+	margin: 12px 0;
+	border-radius: 8px;
+	padding: 4px;
+	background: var(--vscode-editor-background);
+	position: relative;
+	box-sizing: border-box;
+}
+
+.columns-container.columns-stacked {
+	flex-direction: column;
+}
+
+.columns-container.columns-nested {
+	margin: 8px 0;
+	min-height: 0;
+	padding: 3px;
+}
+
+.columns-container .column-item {
+	position: relative;
+	flex: 1 1 0%;
+	min-width: 0;
+	padding: 10px 14px;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	box-sizing: border-box;
+	overflow: visible;
+}
+
+.columns-container .column-item.columns-custom-style {
+	background: var(--columns-col-bg, transparent);
+	color: var(--columns-col-text, inherit);
+	border-style: solid;
+	border-color: var(--columns-col-border-color, transparent);
+	border-width: var(--columns-col-border-width, 0px);
+	border-top-width: var(
+		--columns-col-horizontal-width,
+		var(--columns-col-border-width, 0px)
+	);
+	border-bottom-width: var(
+		--columns-col-horizontal-width,
+		var(--columns-col-border-width, 0px)
+	);
+}
+
+/* Force links/tags inside styled columns to inherit the custom text color */
+.columns-container .column-item.columns-custom-style a,
+.columns-container .column-item.columns-custom-style .tag {
+	color: inherit;
+}
+
+.columns-container.columns-custom-style {
+	background: var(--columns-block-bg, var(--vscode-editor-background));
+	color: var(--columns-block-text, inherit);
+	border-style: solid;
+	border-color: var(
+		--columns-block-border-color,
+		var(--columns-block-default-border-color)
+	);
+	border-width: var(
+		--columns-block-border-width,
+		var(--columns-block-default-border-width)
+	);
+	border-top-width: var(
+		--columns-block-horizontal-width,
+		var(
+			--columns-block-border-width,
+			var(--columns-block-default-border-width)
+		)
+	);
+	border-bottom-width: var(
+		--columns-block-horizontal-width,
+		var(
+			--columns-block-border-width,
+			var(--columns-block-default-border-width)
+		)
+	);
+}
+
+/* Left border mode (callout-style) */
+.columns-container .column-item.columns-left-border {
+	border-top: none;
+	border-right: none;
+	border-bottom: none;
+	border-left: 3px solid
+		var(--columns-left-border-color, var(--columns-col-border-color, var(--vscode-button-background)));
+	border-radius: 0 6px 6px 0;
+}
+
+/* Stack groups: vertical stacking of consecutive stk:N columns */
+.columns-container .columns-stack-group {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 0%;
+	min-width: 0;
+}
+
+/* ── Separators ── */
+.column-separator-visual {
+	flex: 0 0 auto;
+	width: 8px;
+	align-self: stretch;
+	background-image: linear-gradient(
+		var(--sep-color, var(--vscode-panel-border)),
+		var(--sep-color, var(--vscode-panel-border))
+	);
+	background-size: var(--sep-width, 1px) 100%;
+	background-position: center;
+	background-repeat: no-repeat;
+}
+
+.columns-stack-group > .column-separator-visual,
+.columns-stacked > .column-separator-visual {
+	width: 100%;
+	height: 8px;
+	background-size: 100% var(--sep-width, 1px);
+	background-position: center;
+	background-repeat: no-repeat;
+}
+
+.column-separator-custom {
+	flex: 0 0 auto;
+	width: var(--sep-size, 12px);
+	align-self: stretch;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--sep-color, var(--vscode-panel-border));
+	font-size: var(--sep-size, 12px);
+	line-height: 1;
+}
+
+.columns-stack-group > .column-separator-custom,
+.columns-stacked > .column-separator-custom {
+	width: 100%;
+	height: var(--sep-size, 12px);
+}
+
+/* ── Compact content spacing inside columns ── */
+.columns-container .column-content > :first-child {
+	margin-top: 0;
+}
+
+.columns-container .column-content > :last-child {
+	margin-bottom: 0;
+}
+
+.columns-container .column-content p {
+	margin: 0.3rem 0;
+}
+
+.columns-container .column-content h1,
+.columns-container .column-content h2,
+.columns-container .column-content h3,
+.columns-container .column-content h4,
+.columns-container .column-content h5,
+.columns-container .column-content h6 {
+	margin: 0.3rem 0 0.2rem;
+}
+
+.columns-container .column-content ul,
+.columns-container .column-content ol {
+	margin: 0.2rem 0;
+}
+
+/* Make sure the container never collapses its children */
+.columns-container > .column-item,
+.columns-container > .columns-stack-group {
+	min-height: 40px;
+}
