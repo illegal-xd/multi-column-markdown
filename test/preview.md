@@ -5,6 +5,7 @@
 
 ---
 
+
 ## 1. 基础布局：两列等宽
 
 ```markdown
@@ -73,11 +74,11 @@ green-soft
 
 secondary
 
-%% col-break:b:accent-soft %%
+%% col-break:b:accent-soft,ml:8 %%
 
 accent-soft
 
-%% col-break:b:green-soft %%
+%% col-break:b:green-soft,ml:8 %%
 
 green-soft
 
@@ -504,7 +505,7 @@ B
 ```markdown
 %% col-start %%
 %% col-break:pd:12,b:secondary %%
-默认 5px，此处 12px
+默认 8px，此处 12px
 %% col-break:ml:16,mr:8,b:secondary %%
 左右外边距 16px / 8px
 %% col-break:mt:20,mb:20,b:secondary %%
@@ -513,15 +514,15 @@ B
 ```
 
 %% col-start %%
-%% col-break:pd:12,b:secondary %%
+%% col-break:pd:12,sb:1,b:secondary %%
 
-默认 5px，此处 12px
+默认 8px，此处 12px
 
-%% col-break:ml:16,mr:8,b:secondary %%
+%% col-break:ml:16,mr:8,sb:1,b:secondary %%
 
 左右外边距 16px / 8px
 
-%% col-break:mt:20,mb:20,b:secondary %%
+%% col-break:mt:20,mb:20,sb:1,b:secondary %%
 
 上下外边距 20px
 

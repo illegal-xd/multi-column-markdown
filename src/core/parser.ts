@@ -195,7 +195,8 @@ export function parseStyleTokens(
 				if (parsed !== null) style.leftBorder = parsed;
 				break;
 			}
-			case "pd": {
+			case "pd":
+			case "pb": { // "pb" tolerated as a common typo of "pd" (padding)
 				const spacing = parseCssSpacing(rawValue);
 				if (spacing) style.padding = spacing;
 				break;

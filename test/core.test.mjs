@@ -169,4 +169,23 @@ test("multi-value spacing (pd:4 8) survives token expansion", () => {
   assert.equal(s.background, "secondary");
 });
 
+test("pb is accepted as a padding alias", () => {
+  const doc = "%% col-start %%\n%% col-break:pb:20,ml:10,b:accent-soft %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.padding, "20px");
+  assert.equal(s.marginLeft, "10px");
+  assert.equal(s.background, "accent-soft");
+});
+
+test("user-reported combo renders with ml + padding", () => {
+  const doc = "%% col-start %%\n%% col-break:b:secondary %%\nsecondary\n%% col-break:b:accent-soft,ml:10,pb:20 %%\naccent-soft\n%% col-break:b:green-soft,ml:10 %%\ngreen-soft\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  const s2 = r[0].columns[1].style ?? {};
+  const s3 = r[0].columns[2].style ?? {};
+  assert.equal(s2.background, "accent-soft");
+  assert.equal(s2.marginLeft, "10px");
+  assert.equal(s2.padding, "20px");
+  assert.equal(s3.marginLeft, "10px");
+});
+
 rmSync(dir, {recursive: true, force: true});
