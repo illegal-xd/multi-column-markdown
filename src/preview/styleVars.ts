@@ -38,6 +38,12 @@ export function buildColumnStyleVars(parsed: ColumnStyleData): Record<string, st
 		}
 	}
 
+	if (parsed.padding) cssProps["--columns-col-padding"] = parsed.padding;
+	if (parsed.marginLeft) cssProps["--columns-col-ml"] = parsed.marginLeft;
+	if (parsed.marginTop) cssProps["--columns-col-mt"] = parsed.marginTop;
+	if (parsed.marginRight) cssProps["--columns-col-mr"] = parsed.marginRight;
+	if (parsed.marginBottom) cssProps["--columns-col-mb"] = parsed.marginBottom;
+
 	return cssProps;
 }
 

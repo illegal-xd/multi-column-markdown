@@ -47,6 +47,13 @@ export interface ColumnStyleData {
 	separatorStyle?: SeparatorLineStyle;
 	separatorWidth?: number;
 	separatorCustomChar?: string;
+	/** Column padding (CSS spacing, e.g. "5px" / "4px 8px"); default 5px */
+	padding?: string;
+	/** Column margins (CSS spacing); default 0 */
+	marginLeft?: string;
+	marginTop?: string;
+	marginRight?: string;
+	marginBottom?: string;
 }
 
 export interface ColumnData {

@@ -1,0 +1,151 @@
+/**
+ * Core parser/serializer tests (marker syntax, style tokens incl.
+ * pd/ml/mt/mr/mb spacing tokens, nesting, stack groups, clamping).
+ */
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import {execSync} from "node:child_process";
+import {mkdtempSync, writeFileSync, rmSync} from "node:fs";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
+
+// Bundle the parser/serializer to ESM for node import.
+const dir = mkdtempSync(join(tmpdir(), "amc-core-"));
+try {
+  execSync(
+    "npx esbuild src/core/parser.ts --bundle --format=esm --outfile=" + join(dir, "parser.mjs") +
+    " && npx esbuild src/core/serializer.ts --bundle --format=esm --outfile=" + join(dir, "serializer.mjs"),
+    {cwd: new URL("..", import.meta.url).pathname, stdio: "pipe"},
+  );
+} catch (e) {
+  console.error(String(e.stdout ?? e));
+  process.exit(1);
+}
+const {findColumnRegions, serializeColumns, docContainsColumns, serializeStyleTokens} = await import(join(dir, "parser.mjs"));
+
+test("basic two columns", () => {
+  const doc = "%% col-start %%\n%% col-break %%\nLeft\n%% col-break %%\nRight\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].columns.length, 2);
+  assert.equal(r[0].columns[0].content, "Left");
+  assert.equal(r[0].columns[1].content, "Right");
+});
+
+test("width + style tokens", () => {
+  const doc = "%% col-start %%\n%% col-break:40,b:secondary %%\nA\n%% col-break:w:60,bc:blue,t:text,sb:1 %%\nB\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].widthPercent, 40);
+  assert.equal(r[0].columns[0].style?.background, "secondary");
+  assert.equal(r[0].columns[1].widthPercent, 60);
+  assert.equal(r[0].columns[1].style?.borderColor, "blue");
+  assert.equal(r[0].columns[1].style?.showBorder, true);
+});
+
+test("nested regions", () => {
+  const doc = "%% col-start %%\n%% col-break %%\nOuter A\n%% col-break %%\n%% col-start %%\n%% col-break %%\nInner 1\n%% col-break %%\nInner 2\n%% col-end %%\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r.length, 1);
+  const nested = findColumnRegions(r[0].columns[1].content);
+  assert.equal(nested.length, 1);
+  assert.equal(nested[0].columns[1].content, "Inner 2");
+});
+
+test("stack groups", () => {
+  const doc = "%% col-start %%\n%% col-break:40,stk:1 %%\nS1\n%% col-break:stk:1 %%\nS2\n%% col-break:60 %%\nWide\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].stacked, 1);
+  assert.equal(r[0].columns[1].stacked, 1);
+  assert.equal(r[0].columns[2].stacked, undefined);
+});
+
+test("content before first break ignored", () => {
+  const doc = "%% col-start %%\nIGNORED\n%% col-break %%\nReal\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns.length, 1);
+  assert.equal(r[0].columns[0].content, "Real");
+});
+
+test("width sum > 100 resets to equal", () => {
+  const doc = "%% col-start %%\n%% col-break:80 %%\nA\n%% col-break:40 %%\nB\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].widthPercent, 0);
+  assert.equal(r[0].columns[1].widthPercent, 0);
+});
+
+test("container style + layout", () => {
+  const doc = "%% col-start:l:stack,bc:muted %%\n%% col-break:sep:1,sc:red,ss:dashed,sw:2 %%\nX\n%% col-break:lb:1,hd:0 %%\nY\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].layout, "stack");
+  assert.equal(r[0].containerStyle?.borderColor, "muted");
+  assert.equal(r[0].columns[0].style?.separator, true);
+  assert.equal(r[0].columns[0].style?.separatorStyle, "dashed");
+  assert.equal(r[0].columns[1].style?.leftBorder, true);
+});
+
+test("round-trip serialize", () => {
+  const doc = "%% col-start %%\n%% col-break %%\nLeft\n%% col-break %%\nRight\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  const round = serializeColumns(r[0].columns, r[0].containerStyle, r[0].layout);
+  const r2 = findColumnRegions(round);
+  assert.equal(r2[0].columns.length, 2);
+  assert.equal(r2[0].columns[0].content, "Left");
+});
+
+test("plain doc: no regions", () => {
+  const r = findColumnRegions("# Heading\n\nplain text");
+  assert.equal(r.length, 0);
+  assert.equal(docContainsColumns("# Heading"), false);
+});
+
+test("spacing tokens: pd number → px", () => {
+  const doc = "%% col-start %%\n%% col-break:pd:8 %%\nA\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].style?.padding, "8px");
+});
+
+test("spacing tokens: pd multi-value shorthand", () => {
+  const doc = "%% col-start %%\n%% col-break:pd:4 8 %%\nA\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].style?.padding, "4px 8px");
+});
+
+test("spacing tokens: ml/mt/mr/mb numbers and units", () => {
+  const doc = "%% col-start %%\n%% col-break:ml:10,mt:2px,mr:0.5em,mb:0 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.marginLeft, "10px");
+  assert.equal(s.marginTop, "2px");
+  assert.equal(s.marginRight, "0.5em");
+  assert.equal(s.marginBottom, "0px");
+});
+
+test("spacing tokens: serialize round-trip", () => {
+  const tokens = serializeStyleTokens({
+    padding: "8px",
+    marginLeft: "10px",
+    marginTop: "2px",
+    marginRight: "0.5em",
+    marginBottom: "0px",
+  });
+  assert.ok(tokens.includes("pd:8px"));
+  assert.ok(tokens.includes("ml:10px"));
+  assert.ok(tokens.includes("mt:2px"));
+  assert.ok(tokens.includes("mr:0.5em"));
+  assert.ok(tokens.includes("mb:0px"));
+});
+
+test("spacing tokens: empty value ignored", () => {
+  const doc = "%% col-start %%\n%% col-break:pd: %%\nA\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].style?.padding, undefined);
+});
+
+test("spacing tokens: co-exist with other tokens", () => {
+  const doc = "%% col-start %%\n%% col-break:b:secondary,pd:12,ml:6 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.background, "secondary");
+  assert.equal(s.padding, "12px");
+  assert.equal(s.marginLeft, "6px");
+});
+
+rmSync(dir, {recursive: true, force: true});

@@ -92,6 +92,18 @@ function parseBoolean(value: string): boolean | null {
 	}
 }
 
+/**
+ * Parse a CSS spacing value: bare numbers become px ("8" → "8px"),
+ * multi-value shorthand keeps its structure ("4 8" → "4px 8px"),
+ * unit-ed values pass through ("0.5em", "10%").
+ */
+function parseCssSpacing(value: string): string | undefined {
+	const parts = value.split(/\s+/).filter((p) => p.length > 0);
+	if (parts.length === 0) return undefined;
+	const converted = parts.map((p) => (/^\d+(\.\d+)?$/.test(p) ? `${p}px` : p));
+	return converted.join(" ");
+}
+
 export function parseStyleTokens(
 	tokens: ReadonlyArray<string>,
 ): ColumnStyleData | undefined {
@@ -150,6 +162,31 @@ export function parseStyleTokens(
 			case "lb": {
 				const parsed = parseBoolean(rawValue);
 				if (parsed !== null) style.leftBorder = parsed;
+				break;
+			}
+			case "pd": {
+				const spacing = parseCssSpacing(rawValue);
+				if (spacing) style.padding = spacing;
+				break;
+			}
+			case "ml": {
+				const spacing = parseCssSpacing(rawValue);
+				if (spacing) style.marginLeft = spacing;
+				break;
+			}
+			case "mt": {
+				const spacing = parseCssSpacing(rawValue);
+				if (spacing) style.marginTop = spacing;
+				break;
+			}
+			case "mr": {
+				const spacing = parseCssSpacing(rawValue);
+				if (spacing) style.marginRight = spacing;
+				break;
+			}
+			case "mb": {
+				const spacing = parseCssSpacing(rawValue);
+				if (spacing) style.marginBottom = spacing;
 				break;
 			}
 		}
@@ -260,6 +297,11 @@ export function serializeStyleTokens(style: ColumnStyleData | undefined): string
 	if (style?.separatorWidth !== undefined) tokens.push(`sw:${style.separatorWidth}`);
 	if (style?.separatorCustomChar) tokens.push(`sx:${style.separatorCustomChar}`);
 	if (style?.leftBorder !== undefined) tokens.push(`lb:${style.leftBorder ? "1" : "0"}`);
+	if (style?.padding) tokens.push(`pd:${style.padding}`);
+	if (style?.marginLeft) tokens.push(`ml:${style.marginLeft}`);
+	if (style?.marginTop) tokens.push(`mt:${style.marginTop}`);
+	if (style?.marginRight) tokens.push(`mr:${style.marginRight}`);
+	if (style?.marginBottom) tokens.push(`mb:${style.marginBottom}`);
 	return tokens;
 }
 

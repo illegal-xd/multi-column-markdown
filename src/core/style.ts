@@ -61,6 +61,11 @@ const COLUMN_STYLE_VAR_KEYS = [
 	"--columns-col-sep-color",
 	"--columns-col-sep-width",
 	"--columns-col-sep-style",
+	"--columns-col-padding",
+	"--columns-col-ml",
+	"--columns-col-mt",
+	"--columns-col-mr",
+	"--columns-col-mb",
 ] as const;
 
 const CONTAINER_STYLE_VAR_KEYS = [
@@ -173,6 +178,12 @@ function buildColumnCssProps(parsed: ColumnStyleData): Record<string, string> {
 			cssProps["--columns-col-sep-style"] = parsed.separatorStyle;
 		}
 	}
+
+	if (parsed.padding) cssProps["--columns-col-padding"] = parsed.padding;
+	if (parsed.marginLeft) cssProps["--columns-col-ml"] = parsed.marginLeft;
+	if (parsed.marginTop) cssProps["--columns-col-mt"] = parsed.marginTop;
+	if (parsed.marginRight) cssProps["--columns-col-mr"] = parsed.marginRight;
+	if (parsed.marginBottom) cssProps["--columns-col-mb"] = parsed.marginBottom;
 
 	return cssProps;
 }

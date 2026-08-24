@@ -499,7 +499,40 @@ B
 
 ---
 
-## 14. 综合示例（组合多种能力）
+## 14. 内边距与外边距（pd: / ml: / mt: / mr: / mb:）
+
+```markdown
+%% col-start %%
+%% col-break:pd:12,b:secondary %%
+默认 5px，此处 12px
+%% col-break:ml:16,mr:8,b:secondary %%
+左右外边距 16px / 8px
+%% col-break:mt:20,mb:20,b:secondary %%
+上下外边距 20px
+%% col-end %%
+```
+
+%% col-start %%
+%% col-break:pd:12,b:secondary %%
+
+默认 5px，此处 12px
+
+%% col-break:ml:16,mr:8,b:secondary %%
+
+左右外边距 16px / 8px
+
+%% col-break:mt:20,mb:20,b:secondary %%
+
+上下外边距 20px
+
+%% col-end %%
+
+> 所有分栏默认 `padding: 5px`；`pd:` 可改为任意 CSS 间距（如 `pd:4 8`、`pd:0.5em`），
+> `ml:/mt:/mr:/mb:` 控制各方向外边距（默认 0）。数字自动加 `px`。
+
+---
+
+## 15. 综合示例（组合多种能力）
 
 ```markdown
 %% col-start:bc:muted %%   ← 容器边框
@@ -532,7 +565,7 @@ B
 
 在线
 
-%% col-break:70,b:alt %%
+%% col-break:70,b:alt,pd:12 %%
 
 !tip: 正文
 

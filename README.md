@@ -21,7 +21,7 @@ written for the Obsidian plugin render identically in the built-in preview.
 - **Nested columns** — unlimited depth; build columns inside columns.
 - **Width control** — `%% col-break:30 %%` sets percentage width (also `w:40`); sums over 100% fall back to equal widths.
 - **Stack groups** — `stk:N` stacks adjacent columns vertically; container-level `l:stack` lays out the whole block top-to-bottom.
-- **Style tokens (13)** — background `b:`, border color `bc:`, text color `t:`/`tc:`, border toggle `sb:`, horizontal
+- **Style tokens (18)** — background `b:`, border color `bc:`, text color `t:`/`tc:`, border toggle `sb:`, horizontal
   dividers `h:`/`hd:`, left border `lb:`, separators `sep:`/`sc:`/`ss:`/`sw:`/`sx:`.
 - **Column headers** — first line `!note: Title` renders as an icon header (built-in `note/info/tip/warning/danger`, customizable).
 - **Wikilinks** — `[[note]]` renders as a clickable link, `![[image.png]]` as an embedded image.
@@ -77,6 +77,8 @@ Right column
 | `ss:` | Separator style | `solid` `dashed` `dotted` `double` `custom` |
 | `sw:` | Separator width (px) | `1`–`8` |
 | `sx:` | Custom separator char | 1–3 chars (with `ss:custom`) |
+| `pd:` | Column padding (default `5px`) | CSS spacing: `8`, `4 8`, `0.5em`, `10%` (numbers → px) |
+| `ml:` / `mt:` / `mr:` / `mb:` | Column margin-left/top/right/bottom (default `0`) | CSS spacing, same as `pd:` |
 | `stk:` | Stack group id (col-break) | positive integer |
 | `l:` | Container layout (col-start) | `row` (default) `stack` |
 

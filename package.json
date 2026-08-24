@@ -369,6 +369,7 @@
   "scripts": {
     "build": "tsc -noEmit -p tsconfig.json && node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
+    "test": "NODE_PATH=./test/helpers/node_modules node --test test/core.test.mjs test/preview.test.mjs",
     "package": "npm run build && vsce package",
     "lint": "tsc -noEmit -p tsconfig.json"
   },
