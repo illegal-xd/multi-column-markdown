@@ -83,6 +83,27 @@ test("container style + layout", () => {
   assert.equal(r[0].columns[1].style?.leftBorder, true);
 });
 
+test("container gap token: g number → px", () => {
+  const doc = "%% col-start:g:12 %%\n%% col-break %%\nA\n%% col-break %%\nB\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].containerStyle?.gap, "12px");
+});
+
+test("container gap token: g with unit / multi-value", () => {
+  const doc = "%% col-start:g:0.5em %%\n%% col-break %%\nA\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].containerStyle?.gap, "0.5em");
+});
+
+test("gap round-trips through serialize", () => {
+  const doc = "%% col-start:g:10 %%\n%% col-break %%\nA\n%% col-break %%\nB\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  const round = serializeColumns(r[0].columns, r[0].containerStyle, r[0].layout);
+  assert.ok(round.includes("%% col-start:g:10px %%"));
+  const r2 = findColumnRegions(round);
+  assert.equal(r2[0].containerStyle?.gap, "10px");
+});
+
 test("round-trip serialize", () => {
   const doc = "%% col-start %%\n%% col-break %%\nLeft\n%% col-break %%\nRight\n%% col-end %%";
   const r = findColumnRegions(doc);
@@ -186,6 +207,179 @@ test("user-reported combo renders with ml + padding", () => {
   assert.equal(s2.marginLeft, "10px");
   assert.equal(s2.padding, "20px");
   assert.equal(s3.marginLeft, "10px");
+});
+
+test("text-align token: ta parse", () => {
+  const doc = "%% col-start %%\n%% col-break:ta:center %%\nA\n%% col-break:ta:left %%\nB\n%% col-break:ta:right %%\nC\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].style?.textAlign, "center");
+  assert.equal(r[0].columns[1].style?.textAlign, "left");
+  assert.equal(r[0].columns[2].style?.textAlign, "right");
+});
+
+test("text-align token: invalid ta ignored", () => {
+  const doc = "%% col-start %%\n%% col-break:ta:justify %%\nA\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].style, undefined);
+});
+
+test("text-align token: serialize round-trip", () => {
+  const tokens = serializeStyleTokens({textAlign: "center"});
+  assert.ok(tokens.includes("ta:center"));
+});
+
+test("text-align full round-trip through serializeColumns", () => {
+  const doc = "%% col-start %%\n%% col-break:40,ta:right,b:secondary %%\nA\n%% col-break:60 %%\nB\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  const round = serializeColumns(r[0].columns, r[0].containerStyle, r[0].layout);
+  assert.ok(round.includes("%% col-break:40,b:secondary,ta:right %%"));
+  const r2 = findColumnRegions(round);
+  assert.equal(r2[0].columns[0].style?.textAlign, "right");
+});
+
+test("bc:transparent is accepted as border color", () => {
+  const doc = "%% col-start %%\n%% col-break:bc:transparent,sb:1 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.borderColor, "transparent");
+  assert.equal(s.showBorder, true);
+});
+
+test("border-radius token: br number → px", () => {
+  const doc = "%% col-start %%\n%% col-break:br:12 %%\nA\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].style?.borderRadius, "12px");
+});
+
+test("border-radius token: br units and multi-value", () => {
+  const doc = "%% col-start %%\n%% col-break:br:0.5em %%\nA\n%% col-break:br:4 8 %%\nB\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].style?.borderRadius, "0.5em");
+  assert.equal(r[0].columns[1].style?.borderRadius, "4px 8px");
+});
+
+test("border-radius token: serialize round-trip", () => {
+  const tokens = serializeStyleTokens({borderRadius: "10px"});
+  assert.ok(tokens.includes("br:10px"));
+  const doc = "%% col-start %%\n%% col-break:br:8,b:secondary %%\nA\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  const round = serializeColumns(r[0].columns, r[0].containerStyle, r[0].layout);
+  assert.ok(round.includes("%% col-break:b:secondary,br:8px %%"));
+});
+
+test("margin shorthand: m single value applies to all sides", () => {
+  const doc = "%% col-start %%\n%% col-break:m:8 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.margin, "8px");
+});
+
+test("margin shorthand: m multi-value", () => {
+  const doc = "%% col-start %%\n%% col-break:m:4 8 %%\nA\n%% col-break:m:4 8 12 16 %%\nB\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].style?.margin, "4px 8px");
+  assert.equal(r[0].columns[1].style?.margin, "4px 8px 12px 16px");
+});
+
+test("margin shorthand: m with units", () => {
+  const doc = "%% col-start %%\n%% col-break:m:0.5em %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.margin, "0.5em");
+});
+
+test("margin shorthand: m + directional ml coexist (direction wins)", () => {
+  const doc = "%% col-start %%\n%% col-break:m:8,ml:16 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.margin, "8px");
+  assert.equal(s.marginLeft, "16px");
+});
+
+test("margin shorthand: serialize round-trip", () => {
+  const tokens = serializeStyleTokens({margin: "8px", marginLeft: "16px"});
+  assert.ok(tokens.includes("m:8px"));
+  assert.ok(tokens.includes("ml:16px"));
+  const doc = "%% col-start %%\n%% col-break:m:6,b:secondary %%\nA\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  const round = serializeColumns(r[0].columns, r[0].containerStyle, r[0].layout);
+  assert.ok(round.includes("%% col-break:b:secondary,m:6px %%"));
+});
+
+test("border-width token: bw single value", () => {
+  const doc = "%% col-start %%\n%% col-break:bw:2 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.borderWidth, "2px");
+});
+
+test("border-width token: bw multi-value and units", () => {
+  const doc = "%% col-start %%\n%% col-break:bw:1 0 %%\nA\n%% col-break:bw:0.5em %%\nB\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].columns[0].style?.borderWidth, "1px 0px");
+  assert.equal(r[0].columns[1].style?.borderWidth, "0.5em");
+});
+
+test("border-width token: bw:0 disables visible border", () => {
+  const doc = "%% col-start %%\n%% col-break:bw:0,sb:1 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.borderWidth, "0px");
+  assert.equal(s.showBorder, true);
+});
+
+test("border-width token: serialize round-trip", () => {
+  const tokens = serializeStyleTokens({borderWidth: "2px"});
+  assert.ok(tokens.includes("bw:2px"));
+});
+
+test("border-width directional tokens: bwl/bwt/bwr/bwb parse", () => {
+  const doc = "%% col-start %%\n%% col-break:bwl:2,bwt:3,bwr:4,bwb:0 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.borderWidthLeft, "2px");
+  assert.equal(s.borderWidthTop, "3px");
+  assert.equal(s.borderWidthRight, "4px");
+  assert.equal(s.borderWidthBottom, "0px");
+});
+
+test("border-width directional tokens: serialize round-trip", () => {
+  const tokens = serializeStyleTokens({
+    borderWidth: "1px",
+    borderWidthLeft: "2px",
+    borderWidthTop: "3px",
+    borderWidthRight: "4px",
+    borderWidthBottom: "0px",
+  });
+  assert.ok(tokens.includes("bw:1px"));
+  assert.ok(tokens.includes("bwl:2px"));
+  assert.ok(tokens.includes("bwt:3px"));
+  assert.ok(tokens.includes("bwr:4px"));
+  assert.ok(tokens.includes("bwb:0px"));
+});
+
+test("border-radius directional tokens: brl/brt/brr/brb parse", () => {
+  const doc = "%% col-start %%\n%% col-break:brl:8,brt:10,brr:12,brb:0 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.borderRadiusLeft, "8px");
+  assert.equal(s.borderRadiusTop, "10px");
+  assert.equal(s.borderRadiusRight, "12px");
+  assert.equal(s.borderRadiusBottom, "0px");
+});
+
+test("border-radius directional tokens: serialize round-trip", () => {
+  const tokens = serializeStyleTokens({
+    borderRadius: "4px",
+    borderRadiusLeft: "8px",
+    borderRadiusTop: "10px",
+    borderRadiusRight: "12px",
+    borderRadiusBottom: "0px",
+  });
+  assert.ok(tokens.includes("br:4px"));
+  assert.ok(tokens.includes("brl:8px"));
+  assert.ok(tokens.includes("brt:10px"));
+  assert.ok(tokens.includes("brr:12px"));
+  assert.ok(tokens.includes("brb:0px"));
+});
+
+test("directional tokens: units and multi-value", () => {
+  const doc = "%% col-start %%\n%% col-break:brl:0.5em,bwl:1 0 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.borderRadiusLeft, "0.5em");
+  assert.equal(s.borderWidthLeft, "1px 0px");
 });
 
 rmSync(dir, {recursive: true, force: true});

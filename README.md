@@ -9,7 +9,7 @@ Ported from the Obsidian plugin [`amatya-aditya/advanced-multi-column`](https://
 (v1.3.1, AGPL-3.0). The **marker syntax, rendering semantics, style tokens, templates and settings are 1:1** — documents
 written for the Obsidian plugin render identically in the built-in preview.
 
-> **Live demo**: the extension ships `test/preview.md`, a full walkthrough of every feature. Open it and press
+> **Live demo**: the extension ships `preview/preview.md`, a full walkthrough of every feature. Open it and press
 > `Cmd+Shift+V` to see all options rendered side by side with their source.
 
 ---
@@ -21,8 +21,8 @@ written for the Obsidian plugin render identically in the built-in preview.
 - **Nested columns** — unlimited depth; build columns inside columns.
 - **Width control** — `%% col-break:30 %%` sets percentage width (also `w:40`); sums over 100% fall back to equal widths.
 - **Stack groups** — `stk:N` stacks adjacent columns vertically; container-level `l:stack` lays out the whole block top-to-bottom.
-- **Style tokens (18)** — background `b:`, border color `bc:`, text color `t:`/`tc:`, border toggle `sb:`, horizontal
-  dividers `h:`/`hd:`, left border `lb:`, separators `sep:`/`sc:`/`ss:`/`sw:`/`sx:`.
+- **Style tokens (22)** — background `b:`, border color `bc:` (incl. `transparent`), border width `bw:`/`bwl:`/`bwt:`/`bwr:`/`bwb:`, border radius `br:`/`brl:`/`brt:`/`brr:`/`brb:`, text color `t:`/`tc:`, border toggle `sb:`, horizontal
+  dividers `h:`/`hd:`, left border `lb:`, separators `sep:`/`sc:`/`ss:`/`sw:`/`sx:`, text alignment `ta:`, margin shorthand `m:`.
 - **Column headers** — first line `!note: Title` renders as an icon header (built-in `note/info/tip/warning/danger`, customizable).
 - **Wikilinks** — `[[note]]` renders as a clickable link, `![[image.png]]` as an embedded image.
 - **Templates (10 commands)** — 2/3/4-wide, custom count, nested, sidebar, stacked, Cornell notes, Kanban board, info card.
@@ -69,7 +69,7 @@ Right column
 | Token | Property | Values |
 |---|---|---|
 | `b:` | Background | `transparent` `primary` `secondary` `alt` `accent-soft` `red-soft` `orange-soft` `yellow-soft` `green-soft` `cyan-soft` `blue-soft` `pink-soft` |
-| `bc:` | Border color | `gray` `accent` `muted` `text` `red` `orange` `yellow` `green` `cyan` `blue` `pink` |
+| `bc:` | Border color | `transparent` `gray` `accent` `muted` `text` `red` `orange` `yellow` `green` `cyan` `blue` `pink` |
 | `t:` / `tc:` | Text color | Same as border color |
 | `sb:` | Show border | `1/0`, `true/false`, `yes/no`, `on/off` |
 | `h:` / `hd:` | Horizontal dividers | Same as toggle values |
@@ -79,8 +79,15 @@ Right column
 | `ss:` | Separator style | `solid` `dashed` `dotted` `double` `custom` |
 | `sw:` | Separator width (px) | `1`–`8` |
 | `sx:` | Custom separator char | 1–3 chars (with `ss:custom`) |
-| `pd:` | Column padding (default `5px`) | CSS spacing: `8`, `4 8`, `0.5em`, `10%` (numbers → px) |
-| `ml:` / `mt:` / `mr:` / `mb:` | Column margin-left/top/right/bottom (default `0`) | CSS spacing, same as `pd:` |
+| `ta:` | Column content text alignment | `left` `center` `right` |
+| `pd:` | Column padding (default `5px`) | CSS spacing 1–4 values: `8`, `4 8`, `0.5em`, `10%` (numbers → px); a single value applies to all four sides |
+| `br:` | Column border radius (default `4px`) | CSS spacing: `12`, `0.5em`, `4 8 12 16` (numbers → px) |
+| `brl:` / `brt:` / `brr:` / `brb:` | Per-edge border radius (l=left edge, covers top-left+bottom-left; overrides `br:`) | CSS spacing, same as `br:` |
+| `m:` | Column margin shorthand (default `0`) | CSS spacing 1–4 values: `8`, `4 8`, `4 8 12 16`; a single value applies to all four sides |
+| `ml:` / `mt:` / `mr:` / `mb:` | Directional margin (legacy, overrides `m:`) | CSS spacing, same as `pd:` |
+| `bw:` | Column border width (default `1px` when shown) | CSS spacing 1–4 values: `1`, `1 0`, `0.5em`; a single value applies to all four sides |
+| `bwl:` / `bwt:` / `bwr:` / `bwb:` | Per-side border width (overrides `bw:`) | CSS spacing, same as `bw:` |
+| `g:` | Container gap between columns (default `5px`, col-start) | CSS spacing: `8`, `0.5em`, `10%` (numbers → px) |
 | `stk:` | Stack group id (col-break) | positive integer |
 | `l:` | Container layout (col-start) | `row` (default) `stack` |
 

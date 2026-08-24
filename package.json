@@ -2,7 +2,7 @@
   "name": "multi-column-markdown",
   "displayName": "Advanced Multi Column",
   "description": "Create interactive, nested multi-column layouts in Markdown — marker-based syntax (%% col-start %%), with a full-featured column editor, native preview rendering, drag-to-resize, drag-to-reorder, style popover and wikilink support.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "local",
   "license": "AGPL-3.0",
   "icon": "media/icon.png",

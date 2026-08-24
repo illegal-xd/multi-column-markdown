@@ -9,7 +9,7 @@
 [`amatya-aditya/advanced-multi-column`](https://github.com/amatya-aditya/advanced-multi-column)（v1.3.1，AGPL-3.0）。
 **标记语法、渲染语义、样式 token、模板与设置均为 1:1 移植**——为 Obsidian 插件编写的文档在本扩展的预览中渲染效果一致。
 
-> **功能演示**：扩展包内附带 `test/preview.md` 完整演示文件（安装后位于扩展目录 `test/preview.md`），
+> **功能演示**：扩展包内附带 `preview/preview.md` 完整演示文件（安装后位于扩展目录 `preview/preview.md`），
 > 打开后按 `Cmd+Shift+V` 即可逐项查看全部功能的渲染效果。
 
 ---
@@ -20,7 +20,7 @@
 - **嵌套列** — 无限深度嵌套，列内再建列
 - **宽度控制** — `%% col-break:30 %%` 指定百分比宽度（也支持 `w:40` 写法）；总和超 100% 自动回退等宽
 - **堆叠组** — `stk:N` 将相邻列纵向堆叠；容器级 `l:stack` 整体纵向布局
-- **样式 token（18 种）** — 背景 `b:`、边框色 `bc:`、文字色 `t:`/`tc:`、边框开关 `sb:`、水平分隔线 `h:`/`hd:`、左边界 `lb:`、分隔符 `sep:`/`sc:`/`ss:`/`sw:`/`sx:`
+- **样式 token（22 种）** — 背景 `b:`、边框色 `bc:`（含 `transparent`）、边框宽度 `bw:`/`bwl:`/`bwt:`/`bwr:`/`bwb:`、圆角 `br:`/`brl:`/`brt:`/`brr:`/`brb:`、文字色 `t:`/`tc:`、边框开关 `sb:`、水平分隔线 `h:`/`hd:`、左边界 `lb:`、分隔符 `sep:`/`sc:`/`ss:`/`sw:`/`sx:`、文字对齐 `ta:`、外边距简写 `m:`
 - **列头** — 列内容首行 `!note: 标题` 渲染为带图标的列头（内置 `note/info/tip/warning/danger`，可自定义）
 - **Wikilink** — `[[笔记]]` 渲染为可点击链接，`![[图片.png]]` 渲染为内嵌图片
 - **模板命令（10 个）** — 两列/三列/四列/自定义列数/嵌套/侧边栏/堆叠/Cornell 笔记/看板/信息卡片
@@ -65,7 +65,7 @@
 | Token | 属性 | 可选值 |
 |---|---|---|
 | `b:` | 背景色 | `transparent` `primary` `secondary` `alt` `accent-soft` `red-soft` `orange-soft` `yellow-soft` `green-soft` `cyan-soft` `blue-soft` `pink-soft` |
-| `bc:` | 边框颜色 | `gray` `accent` `muted` `text` `red` `orange` `yellow` `green` `cyan` `blue` `pink` |
+| `bc:` | 边框颜色 | `transparent` `gray` `accent` `muted` `text` `red` `orange` `yellow` `green` `cyan` `blue` `pink` |
 | `t:` / `tc:` | 文字颜色 | 同边框颜色 |
 | `sb:` | 显示边框 | `1/0`、`true/false`、`yes/no`、`on/off` |
 | `h:` / `hd:` | 水平分隔线 | 同开关取值 |
@@ -75,8 +75,15 @@
 | `ss:` | 分隔符样式 | `solid` `dashed` `dotted` `double` `custom` |
 | `sw:` | 分隔符宽度（px） | `1`–`8` |
 | `sx:` | 自定义分隔符字符 | 1–3 个字符（配合 `ss:custom`） |
-| `pd:` | 分栏内边距（默认 `5px`） | CSS 间距：`8`、`4 8`、`0.5em`、`10%`（数字自动加 px） |
-| `ml:` / `mt:` / `mr:` / `mb:` | 分栏左/上/右/下外边距（默认 `0`） | CSS 间距，同 `pd:` |
+| `ta:` | 列内容文字对齐 | `left` `center` `right` |
+| `pd:` | 分栏内边距（默认 `5px`） | CSS 间距 1–4 值：`8`、`4 8`、`0.5em`、`10%`（数字自动加 px）；单值四个方向统一 |
+| `br:` | 分栏圆角（默认 `4px`） | CSS 间距：`12`、`0.5em`、`4 8 12 16`（数字自动加 px） |
+| `brl:` / `brt:` / `brr:` / `brb:` | 分栏单边圆角（l=左边，覆盖左上+左下；优先于 `br:`） | CSS 间距，同 `br:` |
+| `m:` | 分栏外边距简写（默认 `0`） | CSS 间距 1–4 值：`8`、`4 8`、`4 8 12 16`；单值四个方向统一 |
+| `ml:` / `mt:` / `mr:` / `mb:` | 分栏方向外边距（旧写法，优先于 `m:`） | CSS 间距，同 `pd:` |
+| `bw:` | 分栏边框宽度（显示时默认 `1px`） | CSS 间距 1–4 值：`1`、`1 0`、`0.5em`；单值四个方向统一 |
+| `bwl:` / `bwt:` / `bwr:` / `bwb:` | 分栏单边边框宽度（优先于 `bw:`） | CSS 间距，同 `bw:` |
+| `g:` | 分栏间距（默认 `5px`，col-start 容器级） | CSS 间距：`8`、`0.5em`、`10%`（数字自动加 px） |
 | `stk:` | 堆叠组 ID（col-break） | 正整数 |
 | `l:` | 容器布局（col-start） | `row`（默认）`stack` |
 

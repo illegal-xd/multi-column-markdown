@@ -20,6 +20,54 @@ import MarkdownIt from "markdown-it";
 import {findColumnRegions} from "../core/parser";
 import type {ColumnData, ColumnRegion} from "../types";
 import {applyColumnStyleVars, applyContainerStyleVars, resolveColor} from "./styleVars";
+import type {ColumnStyleData} from "../types";
+
+/** Default container gap in px (used for flex-basis shrink compensation). */
+const DEFAULT_GAP_PX = 5;
+
+/**
+ * Gap in px for the flex-basis shrink compensation. Only px values (bare
+ * numbers or `px` unit) translate exactly; other CSS lengths (em/%) fall
+ * back to the default so the layout stays consistent with the CSS gap.
+ */
+function gapPx(style: ColumnStyleData | undefined): number {
+	const raw = style?.gap;
+	if (!raw) return DEFAULT_GAP_PX;
+	const m = /^\d+(\.\d+)?(px)?$/i.exec(raw.trim());
+	return m ? parseFloat(m[0]) : DEFAULT_GAP_PX;
+}
+
+/**
+ * Width in px of a group-to-group separator element. Must stay in sync with
+ * `buildSeparatorHtml`: custom separators size via `--sep-size`, visual
+ * separators are a fixed 8px element (`.column-separator-visual`).
+ */
+function separatorWidthPx(style: ColumnStyleData | undefined): number {
+	if (!style?.separator) return 0;
+	if (style.separatorStyle === "custom") {
+		return style.separatorWidth ? style.separatorWidth * 6 + 6 : 12;
+	}
+	return 8;
+}
+
+/**
+ * Per-column flex-basis shrink (px) so columns + separators + gaps sum to
+ * the container width. Each group-to-group separator contributes its own
+ * width plus an extra gap (it adds one more flex item between columns):
+ *   shrink = (S*(w + gap) + (N-1)*gap) / N
+ * where N = column groups, S = separators between groups, w = sep width.
+ */
+function shrinkPx(region: ColumnRegion, gap: number): number {
+	const groups = groupColumns(region.columns);
+	let extra = (groups.length - 1) * gap;
+	for (let i = 1; i < groups.length; i++) {
+		const prevCol = region.columns[groups[i - 1]!.indices[groups[i - 1]!.indices.length - 1]!]!;
+		if (prevCol.style?.separator) {
+			extra += separatorWidthPx(prevCol.style) + gap;
+		}
+	}
+	return groups.length > 0 ? extra / groups.length : 0;
+}
 
 const START_RE = /^%%\s*col-start(?:\s*:.*)?\s*%%$/;
 const END_RE = /^%%\s*col-end\s*%%$/;
@@ -157,6 +205,7 @@ function renderColumnsHtml(raw: string, md: MarkdownIt, env: unknown, depth: num
 function renderRegion(region: ColumnRegion, md: MarkdownIt, env: unknown, depth: number): string {
 	if (depth > 8) return "";
 	const groups = groupColumns(region.columns);
+	const shrink = shrinkPx(region, gapPx(region.containerStyle));
 
 	const containerVars = applyContainerStyleVars(region.containerStyle);
 	const containerClasses = [
@@ -183,7 +232,7 @@ function renderRegion(region: ColumnRegion, md: MarkdownIt, env: unknown, depth:
 		if (useStackWrapper) {
 			const maxWidth = Math.max(...group.indices.map((idx) => region.columns[idx]!.widthPercent));
 			const flexStyle = maxWidth > 0
-				? ` style="flex: 0 0 calc(${maxWidth}% - ${((groups.length - 1) * 8 / groups.length).toFixed(1)}px)"`
+				? ` style="flex: 0 0 calc(${maxWidth}% - ${shrink.toFixed(1)}px)"`
 				: "";
 			html += `<div class="columns-stack-group"${flexStyle}>`;
 		}
@@ -202,7 +251,6 @@ function renderRegion(region: ColumnRegion, md: MarkdownIt, env: unknown, depth:
 			if (col.style?.leftBorder) classes.push("columns-left-border");
 			let styleAttr = vars ? ` style="${vars}"` : "";
 			if (!useStackWrapper && region.layout !== "stack" && col.widthPercent > 0) {
-				const shrink = (groups.length - 1) * 8 / groups.length;
 				const flex = `flex: 0 0 calc(${col.widthPercent}% - ${shrink.toFixed(1)}px)`;
 				styleAttr = styleAttr ? `${styleAttr.slice(0, -1)};${flex}"` : ` style="${flex}"`;
 			}

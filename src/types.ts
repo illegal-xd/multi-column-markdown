@@ -18,6 +18,7 @@ export type ColumnBackgroundOption =
 	| "pink-soft";
 
 export type StyleColorOption =
+	| "transparent"
 	| "gray"
 	| "accent"
 	| "muted"
@@ -49,11 +50,37 @@ export interface ColumnStyleData {
 	separatorCustomChar?: string;
 	/** Column padding (CSS spacing, e.g. "5px" / "4px 8px"); default 5px */
 	padding?: string;
+	/** Gap between columns (CSS spacing, e.g. "5px" / "0.5em"); default 5px */
+	gap?: string;
 	/** Column margins (CSS spacing); default 0 */
 	marginLeft?: string;
 	marginTop?: string;
 	marginRight?: string;
 	marginBottom?: string;
+	/**
+	 * Margin shorthand (`m:` token, CSS spacing 1-4 values). Overrides are
+	 * applied per-direction by the directional fields above.
+	 */
+	margin?: string;
+	/**
+	 * Border width shorthand (`bw:` token, CSS spacing 1-4 values); a single
+	 * value applies to all four sides. Default 1px when the border is shown.
+	 */
+	borderWidth?: string;
+	/** Per-side border widths (`bwl:`/`bwt:`/`bwr:`/`bwb:` tokens); override the shorthand */
+	borderWidthLeft?: string;
+	borderWidthTop?: string;
+	borderWidthRight?: string;
+	borderWidthBottom?: string;
+	/** Column border radius (`br:` token, CSS spacing); default 4px */
+	borderRadius?: string;
+	/** Per-side border radii (`brl:`/`brt:`/`brr:`/`brb:` tokens); l=left edge (top-left+bottom-left), etc. */
+	borderRadiusLeft?: string;
+	borderRadiusTop?: string;
+	borderRadiusRight?: string;
+	borderRadiusBottom?: string;
+	/** Column content horizontal alignment (`ta:` token); default inherits */
+	textAlign?: "left" | "center" | "right";
 }
 
 export interface ColumnData {

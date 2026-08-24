@@ -45,6 +45,7 @@ const BACKGROUND_OPTION_VALUES = [
 ] as const;
 
 const STYLE_COLOR_OPTION_VALUES = [
+	"transparent",
 	"gray",
 	"accent",
 	"muted",
@@ -206,6 +207,16 @@ export function parseStyleTokens(
 				if (spacing) style.marginLeft = spacing;
 				break;
 			}
+			case "m": {
+				const spacing = parseCssSpacing(rawValue);
+				if (spacing) style.margin = spacing;
+				break;
+			}
+			case "bw": {
+				const spacing = parseCssSpacing(rawValue);
+				if (spacing) style.borderWidth = spacing;
+				break;
+			}
 			case "mt": {
 				const spacing = parseCssSpacing(rawValue);
 				if (spacing) style.marginTop = spacing;
@@ -219,6 +230,63 @@ export function parseStyleTokens(
 			case "mb": {
 				const spacing = parseCssSpacing(rawValue);
 				if (spacing) style.marginBottom = spacing;
+				break;
+			}
+			case "g": {
+				const spacing = parseCssSpacing(rawValue);
+				if (spacing) style.gap = spacing;
+				break;
+			}
+			case "ta": {
+				const align = rawValue.trim().toLowerCase();
+				if (align === "left" || align === "center" || align === "right") {
+					style.textAlign = align;
+				}
+				break;
+			}
+			case "br": {
+				const radius = parseCssSpacing(rawValue);
+				if (radius) style.borderRadius = radius;
+				break;
+			}
+			case "brl": {
+				const radius = parseCssSpacing(rawValue);
+				if (radius) style.borderRadiusLeft = radius;
+				break;
+			}
+			case "brt": {
+				const radius = parseCssSpacing(rawValue);
+				if (radius) style.borderRadiusTop = radius;
+				break;
+			}
+			case "brr": {
+				const radius = parseCssSpacing(rawValue);
+				if (radius) style.borderRadiusRight = radius;
+				break;
+			}
+			case "brb": {
+				const radius = parseCssSpacing(rawValue);
+				if (radius) style.borderRadiusBottom = radius;
+				break;
+			}
+			case "bwl": {
+				const width = parseCssSpacing(rawValue);
+				if (width) style.borderWidthLeft = width;
+				break;
+			}
+			case "bwt": {
+				const width = parseCssSpacing(rawValue);
+				if (width) style.borderWidthTop = width;
+				break;
+			}
+			case "bwr": {
+				const width = parseCssSpacing(rawValue);
+				if (width) style.borderWidthRight = width;
+				break;
+			}
+			case "bwb": {
+				const width = parseCssSpacing(rawValue);
+				if (width) style.borderWidthBottom = width;
 				break;
 			}
 		}
@@ -334,6 +402,19 @@ export function serializeStyleTokens(style: ColumnStyleData | undefined): string
 	if (style?.marginTop) tokens.push(`mt:${style.marginTop}`);
 	if (style?.marginRight) tokens.push(`mr:${style.marginRight}`);
 	if (style?.marginBottom) tokens.push(`mb:${style.marginBottom}`);
+	if (style?.margin) tokens.push(`m:${style.margin}`);
+	if (style?.gap) tokens.push(`g:${style.gap}`);
+	if (style?.textAlign) tokens.push(`ta:${style.textAlign}`);
+	if (style?.borderRadius) tokens.push(`br:${style.borderRadius}`);
+	if (style?.borderRadiusLeft) tokens.push(`brl:${style.borderRadiusLeft}`);
+	if (style?.borderRadiusTop) tokens.push(`brt:${style.borderRadiusTop}`);
+	if (style?.borderRadiusRight) tokens.push(`brr:${style.borderRadiusRight}`);
+	if (style?.borderRadiusBottom) tokens.push(`brb:${style.borderRadiusBottom}`);
+	if (style?.borderWidth) tokens.push(`bw:${style.borderWidth}`);
+	if (style?.borderWidthLeft) tokens.push(`bwl:${style.borderWidthLeft}`);
+	if (style?.borderWidthTop) tokens.push(`bwt:${style.borderWidthTop}`);
+	if (style?.borderWidthRight) tokens.push(`bwr:${style.borderWidthRight}`);
+	if (style?.borderWidthBottom) tokens.push(`bwb:${style.borderWidthBottom}`);
 	return tokens;
 }
 

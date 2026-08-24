@@ -2,7 +2,6 @@
    Advanced Multi Column — native Markdown preview styles
    (VSCode equivalent of the reference plugin's Reading View layout.css)
    ========================================================================== */
-
 .columns-container {
 	--columns-block-default-border-width: 1px;
 	--columns-block-default-border-color: var(--vscode-panel-border);
@@ -10,6 +9,7 @@
 	flex-direction: row;
 	flex-wrap: nowrap;
 	align-items: stretch;
+	gap: var(--columns-block-gap, 5px);
 	width: 100%;
 	margin: 12px 0;
 	border-radius: 6px;
@@ -47,20 +47,37 @@
 	border-style: solid;
 	border-color: var(--columns-col-border-color, transparent);
 	border-width: var(--columns-col-border-width, 0px);
+	border-left-width: var(--columns-col-border-width-l, var(--columns-col-border-width, 0px));
 	border-top-width: var(
-		--columns-col-horizontal-width,
-		var(--columns-col-border-width, 0px)
+		--columns-col-border-width-t,
+		var(
+			--columns-col-horizontal-width,
+			var(--columns-col-border-width, 0px)
+		)
 	);
+	border-right-width: var(--columns-col-border-width-r, var(--columns-col-border-width, 0px));
 	border-bottom-width: var(
-		--columns-col-horizontal-width,
-		var(--columns-col-border-width, 0px)
+		--columns-col-border-width-b,
+		var(
+			--columns-col-horizontal-width,
+			var(--columns-col-border-width, 0px)
+		)
 	);
-	/* Per-column padding/margin via :pd / :ml / :mt / :mr / :mb tokens */
+	/* Per-column padding/margin via :pd / :m / :ml / :mt / :mr / :mb tokens */
 	padding: var(--columns-col-padding, 5px);
-	margin-left: var(--columns-col-ml, 0);
-	margin-top: var(--columns-col-mt, 0);
-	margin-right: var(--columns-col-mr, 0);
-	margin-bottom: var(--columns-col-mb, 0);
+	margin: var(--columns-col-margin, 0);
+	margin-left: var(--columns-col-ml, var(--columns-col-margin, 0));
+	margin-top: var(--columns-col-mt, var(--columns-col-margin, 0));
+	margin-right: var(--columns-col-mr, var(--columns-col-margin, 0));
+	margin-bottom: var(--columns-col-mb, var(--columns-col-margin, 0));
+	/* Column content horizontal alignment via :ta token */
+	text-align: var(--columns-col-text-align, inherit);
+	/* Column border radius via :br / :brl / :brt / :brr / :brb tokens */
+	border-radius: var(--columns-col-radius, 4px);
+	border-top-left-radius: var(--columns-col-radius-tl, var(--columns-col-radius, 4px));
+	border-top-right-radius: var(--columns-col-radius-tr, var(--columns-col-radius, 4px));
+	border-bottom-right-radius: var(--columns-col-radius-br, var(--columns-col-radius, 4px));
+	border-bottom-left-radius: var(--columns-col-radius-bl, var(--columns-col-radius, 4px));
 }
 
 /* Force links/tags inside styled columns to inherit the custom text color */
@@ -104,7 +121,10 @@
 	border-bottom: none;
 	border-left: 3px solid
 		var(--columns-left-border-color, var(--columns-col-border-color, var(--vscode-button-background)));
-	border-radius: 0 4px 4px 0;
+	border-radius: 0
+		var(--columns-col-radius-tr, var(--columns-col-radius, 4px))
+		var(--columns-col-radius-br, var(--columns-col-radius, 4px))
+		0;
 }
 
 /* Stack groups: vertical stacking of consecutive stk:N columns */
@@ -119,6 +139,7 @@
 .column-separator-visual {
 	flex: 0 0 auto;
 	width: 8px;
+	max-width: 100%;
 	align-self: stretch;
 	background-image: linear-gradient(
 		var(--sep-color, var(--vscode-panel-border)),

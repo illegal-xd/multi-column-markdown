@@ -39,6 +39,7 @@ export const HEADER_BORDER_CSS: Record<string, string> = {
 };
 
 export const COLOR_CSS: Record<StyleColorOption, string> = {
+	transparent: "transparent",
 	gray: "var(--vscode-panel-border)",
 	accent: "var(--vscode-button-background)",
 	muted: "var(--vscode-descriptionForeground)",
@@ -66,6 +67,17 @@ const COLUMN_STYLE_VAR_KEYS = [
 	"--columns-col-mt",
 	"--columns-col-mr",
 	"--columns-col-mb",
+	"--columns-col-margin",
+	"--columns-col-text-align",
+	"--columns-col-radius",
+	"--columns-col-radius-tl",
+	"--columns-col-radius-tr",
+	"--columns-col-radius-br",
+	"--columns-col-radius-bl",
+	"--columns-col-border-width-l",
+	"--columns-col-border-width-t",
+	"--columns-col-border-width-r",
+	"--columns-col-border-width-b",
 ] as const;
 
 const CONTAINER_STYLE_VAR_KEYS = [
@@ -139,6 +151,33 @@ export function toStyleData(style: unknown): ColumnStyleData | null {
 		parsed.leftBorder = record.leftBorder;
 	}
 
+	const textAlign = record.textAlign;
+	if (textAlign === "left" || textAlign === "center" || textAlign === "right") {
+		parsed.textAlign = textAlign;
+	}
+
+	const borderRadius = record.borderRadius;
+	if (typeof borderRadius === "string" && borderRadius.length > 0) {
+		parsed.borderRadius = borderRadius;
+	}
+
+	const margin = record.margin;
+	if (typeof margin === "string" && margin.length > 0) {
+		parsed.margin = margin;
+	}
+
+	const borderWidth = record.borderWidth;
+	if (typeof borderWidth === "string" && borderWidth.length > 0) {
+		parsed.borderWidth = borderWidth;
+	}
+
+	for (const key of ["borderWidthLeft", "borderWidthTop", "borderWidthRight", "borderWidthBottom", "borderRadiusLeft", "borderRadiusTop", "borderRadiusRight", "borderRadiusBottom"] as const) {
+		const value = record[key];
+		if (typeof value === "string" && value.length > 0) {
+			parsed[key] = value;
+		}
+	}
+
 	return Object.keys(parsed).length > 0 ? parsed : null;
 }
 
@@ -159,15 +198,27 @@ function buildColumnCssProps(parsed: ColumnStyleData): Record<string, string> {
 	const hasBorderSignals =
 		parsed.showBorder !== undefined ||
 		parsed.horizontalDividers !== undefined ||
-		parsed.borderColor !== undefined;
+		parsed.borderColor !== undefined ||
+		parsed.borderWidth !== undefined ||
+		parsed.borderWidthLeft !== undefined ||
+		parsed.borderWidthTop !== undefined ||
+		parsed.borderWidthRight !== undefined ||
+		parsed.borderWidthBottom !== undefined;
 
 	if (hasBorderSignals) {
 		const effectiveBorderColor = COLOR_CSS[parsed.borderColor ?? "gray"];
-		const showBorder = parsed.showBorder ?? parsed.borderColor !== undefined;
+		const showBorder =
+			parsed.showBorder ??
+			(parsed.borderColor !== undefined ||
+				parsed.borderWidth !== undefined ||
+				parsed.borderWidthLeft !== undefined ||
+				parsed.borderWidthTop !== undefined ||
+				parsed.borderWidthRight !== undefined ||
+				parsed.borderWidthBottom !== undefined);
 		const showHorizontal = parsed.horizontalDividers ?? false;
 
 		cssProps["--columns-col-border-color"] = effectiveBorderColor;
-		cssProps["--columns-col-border-width"] = showBorder ? "1px" : "0px";
+		cssProps["--columns-col-border-width"] = parsed.borderWidth ?? (showBorder ? "1px" : "0px");
 		if (showHorizontal) cssProps["--columns-col-horizontal-width"] = "1px";
 	}
 
@@ -184,6 +235,31 @@ function buildColumnCssProps(parsed: ColumnStyleData): Record<string, string> {
 	if (parsed.marginTop) cssProps["--columns-col-mt"] = parsed.marginTop;
 	if (parsed.marginRight) cssProps["--columns-col-mr"] = parsed.marginRight;
 	if (parsed.marginBottom) cssProps["--columns-col-mb"] = parsed.marginBottom;
+	if (parsed.margin) cssProps["--columns-col-margin"] = parsed.margin;
+	if (parsed.textAlign) cssProps["--columns-col-text-align"] = parsed.textAlign;
+	if (parsed.borderRadius) cssProps["--columns-col-radius"] = parsed.borderRadius;
+	// Per-side radii: l/t/r/b each cover the two corners of that edge.
+	if (parsed.borderRadiusLeft) {
+		cssProps["--columns-col-radius-tl"] = parsed.borderRadiusLeft;
+		cssProps["--columns-col-radius-bl"] = parsed.borderRadiusLeft;
+	}
+	if (parsed.borderRadiusTop) {
+		cssProps["--columns-col-radius-tl"] = parsed.borderRadiusTop;
+		cssProps["--columns-col-radius-tr"] = parsed.borderRadiusTop;
+	}
+	if (parsed.borderRadiusRight) {
+		cssProps["--columns-col-radius-tr"] = parsed.borderRadiusRight;
+		cssProps["--columns-col-radius-br"] = parsed.borderRadiusRight;
+	}
+	if (parsed.borderRadiusBottom) {
+		cssProps["--columns-col-radius-bl"] = parsed.borderRadiusBottom;
+		cssProps["--columns-col-radius-br"] = parsed.borderRadiusBottom;
+	}
+	// Per-side border widths (override the shorthand).
+	if (parsed.borderWidthLeft) cssProps["--columns-col-border-width-l"] = parsed.borderWidthLeft;
+	if (parsed.borderWidthTop) cssProps["--columns-col-border-width-t"] = parsed.borderWidthTop;
+	if (parsed.borderWidthRight) cssProps["--columns-col-border-width-r"] = parsed.borderWidthRight;
+	if (parsed.borderWidthBottom) cssProps["--columns-col-border-width-b"] = parsed.borderWidthBottom;
 
 	return cssProps;
 }
