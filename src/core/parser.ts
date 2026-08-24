@@ -104,11 +104,42 @@ function parseCssSpacing(value: string): string | undefined {
 	return converted.join(" ");
 }
 
+/**
+ * Tolerate sloppy token separators:
+ * - `b:secondary ml:10` (space-separated, values without spaces) is split
+ *   into separate tokens; multi-value spacing tokens like `pd:4 8` are
+ *   preserved (their extra segments carry no colon).
+ */
+function expandTokenList(tokens: ReadonlyArray<string>): string[] {
+	const result: string[] = [];
+	for (const token of tokens) {
+		const sep = token.indexOf(":");
+		if (sep <= 0) {
+			result.push(token);
+			continue;
+		}
+		const key = token.slice(0, sep).trim().toLowerCase();
+		const value = token.slice(sep + 1).trim();
+		if (value.includes(" ")) {
+			const segments = value.split(/\s+/);
+			const extra = segments.slice(1).filter((s) => s.includes(":"));
+			if (extra.length > 0) {
+				// "b:secondary ml:10" → "b:secondary" + "ml:10"
+				result.push(`${key}:${segments[0]}`);
+				result.push(...extra);
+				continue;
+			}
+		}
+		result.push(token);
+	}
+	return result;
+}
+
 export function parseStyleTokens(
 	tokens: ReadonlyArray<string>,
 ): ColumnStyleData | undefined {
 	let style: ColumnStyleData | undefined;
-	for (const token of tokens) {
+	for (const token of expandTokenList(tokens)) {
 		const sep = token.indexOf(":");
 		if (sep <= 0) continue;
 
@@ -201,7 +232,7 @@ function parseBreakPayload(payload: string | undefined): {
 } {
 	if (!payload) return {width: 0};
 	const tokens = payload
-		.split(",")
+		.split(/[,，]/)
 		.map((token) => token.trim())
 		.filter((token) => token.length > 0);
 	if (tokens.length === 0) return {width: 0};
@@ -263,7 +294,7 @@ function parseStartPayload(payload: string | undefined): {
 } {
 	if (!payload) return {};
 	const tokens = payload
-		.split(",")
+		.split(/[,，]/)
 		.map((token) => token.trim())
 		.filter((token) => token.length > 0);
 	if (tokens.length === 0) return {};

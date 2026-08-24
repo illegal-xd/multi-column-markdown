@@ -49,6 +49,8 @@ Right column
 
 > - Content between `%% col-start %%` and the first `%% col-break %%` is ignored.
 > - Column markers must be on their own line, with blank lines around the block (markdown-it block semantics).
+> - Token separators accept commas (half/full width) or spaces (e.g. `b:secondary ml:10`); multi-value spacing like `pd:4 8` is preserved.
+
 
 ---
 

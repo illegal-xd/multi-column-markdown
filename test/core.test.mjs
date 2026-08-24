@@ -148,4 +148,25 @@ test("spacing tokens: co-exist with other tokens", () => {
   assert.equal(s.marginLeft, "6px");
 });
 
+test("space-separated tokens are tolerated (b + ml both apply)", () => {
+  const doc = "%% col-start %%\n%% col-break:b:secondary ml:10 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.background, "secondary");
+  assert.equal(s.marginLeft, "10px");
+});
+
+test("full-width comma separator is tolerated", () => {
+  const doc = "%% col-start %%\n%% col-break:b:secondary，ml:10 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.background, "secondary");
+  assert.equal(s.marginLeft, "10px");
+});
+
+test("multi-value spacing (pd:4 8) survives token expansion", () => {
+  const doc = "%% col-start %%\n%% col-break:pd:4 8,b:secondary %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.padding, "4px 8px");
+  assert.equal(s.background, "secondary");
+});
+
 rmSync(dir, {recursive: true, force: true});

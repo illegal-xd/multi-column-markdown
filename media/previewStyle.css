@@ -12,7 +12,7 @@
 	align-items: stretch;
 	width: 100%;
 	margin: 12px 0;
-	border-radius: 8px;
+	border-radius: 6px;
 	padding: 4px;
 	background: var(--vscode-editor-background);
 	position: relative;
@@ -33,10 +33,10 @@
 	position: relative;
 	flex: 1 1 0%;
 	min-width: 0;
-	padding: 5px;
+	padding: 8px;
 	margin: 0;
 	border: 1px solid transparent;
-	border-radius: 6px;
+	border-radius: 4px;
 	box-sizing: border-box;
 	overflow: visible;
 }
@@ -104,7 +104,7 @@
 	border-bottom: none;
 	border-left: 3px solid
 		var(--columns-left-border-color, var(--columns-col-border-color, var(--vscode-button-background)));
-	border-radius: 0 6px 6px 0;
+	border-radius: 0 4px 4px 0;
 }
 
 /* Stack groups: vertical stacking of consecutive stk:N columns */
