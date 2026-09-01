@@ -64,8 +64,8 @@
 
 | Token | 属性 | 可选值 |
 |---|---|---|
-| `b:` | 背景色 | `transparent` `primary` `secondary` `alt` `accent-soft` `red-soft` `orange-soft` `yellow-soft` `green-soft` `cyan-soft` `blue-soft` `pink-soft` |
-| `bc:` | 边框颜色 | `transparent` `gray` `accent` `muted` `text` `red` `orange` `yellow` `green` `cyan` `blue` `pink` |
+| `b:` | 背景色（支持 `#hex` 自定义色） | `transparent` `primary` `secondary` `alt` `accent-soft` `red-soft` `orange-soft` `yellow-soft` `green-soft` `cyan-soft` `blue-soft` `pink-soft`，或 `#1f2937`、`#3b82f61f`（8 位含 alpha） |
+| `bc:` | 边框颜色（支持 `#hex` 自定义色） | 调色板同 `b:` 之外，可写 `#3b82f6` |
 | `t:` / `tc:` | 文字颜色 | 同边框颜色 |
 | `sb:` | 显示边框 | `1/0`、`true/false`、`yes/no`、`on/off` |
 | `h:` / `hd:` | 水平分隔线 | 同开关取值 |
@@ -77,12 +77,12 @@
 | `sx:` | 自定义分隔符字符 | 1–3 个字符（配合 `ss:custom`） |
 | `ta:` | 列内容文字对齐 | `left` `center` `right` |
 | `pd:` | 分栏内边距（默认 `5px`） | CSS 间距 1–4 值：`8`、`4 8`、`0.5em`、`10%`（数字自动加 px）；单值四个方向统一 |
-| `br:` | 分栏圆角（默认 `4px`） | CSS 间距：`12`、`0.5em`、`4 8 12 16`（数字自动加 px） |
+| `br:` | 分栏圆角（默认 `0`，未配置为直角） | CSS 间距：`12`、`0.5em`、`4 8 12 16`（数字自动加 px） |
 | `brl:` / `brt:` / `brr:` / `brb:` | 分栏单边圆角（l=左边，覆盖左上+左下；优先于 `br:`） | CSS 间距，同 `br:` |
 | `m:` | 分栏外边距简写（默认 `0`） | CSS 间距 1–4 值：`8`、`4 8`、`4 8 12 16`；单值四个方向统一 |
 | `ml:` / `mt:` / `mr:` / `mb:` | 分栏方向外边距（旧写法，优先于 `m:`） | CSS 间距，同 `pd:` |
-| `bw:` | 分栏边框宽度（显示时默认 `1px`） | CSS 间距 1–4 值：`1`、`1 0`、`0.5em`；单值四个方向统一 |
-| `bwl:` / `bwt:` / `bwr:` / `bwb:` | 分栏单边边框宽度（优先于 `bw:`） | CSS 间距，同 `bw:` |
+| `bw:` | 边框宽度（显示时默认 `1px`；col-start 容器与 col-break 分栏均支持） | CSS 间距 1–4 值：`1`、`1 0`、`0.5em`；单值四个方向统一 |
+| `bwl:` / `bwt:` / `bwr:` / `bwb:` | 分栏单边边框宽度（优先于 `bw:`；未指定的方向保持 `0px` 无边框） | CSS 间距，同 `bw:` |
 | `g:` | 分栏间距（默认 `5px`，col-start 容器级） | CSS 间距：`8`、`0.5em`、`10%`（数字自动加 px） |
 | `stk:` | 堆叠组 ID（col-break） | 正整数 |
 | `l:` | 容器布局（col-start） | `row`（默认）`stack` |

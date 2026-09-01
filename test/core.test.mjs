@@ -382,4 +382,49 @@ test("directional tokens: units and multi-value", () => {
   assert.equal(s.borderWidthLeft, "1px 0px");
 });
 
+test("space-mixed tokens keep multi-value spacing: m:4 8 bw:2", () => {
+  const doc = "%% col-start %%\n%% col-break:m:4 8 bw:2 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.margin, "4px 8px");
+  assert.equal(s.borderWidth, "2px");
+});
+
+test("space-mixed tokens keep multi-value padding: pd:4 8 b:secondary", () => {
+  const doc = "%% col-start %%\n%% col-break:pd:4 8 b:secondary %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.padding, "4px 8px");
+  assert.equal(s.background, "secondary");
+});
+
+test("space-separated simple tokens still split: b:secondary ml:10", () => {
+  const doc = "%% col-start %%\n%% col-break:b:secondary ml:10 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.background, "secondary");
+  assert.equal(s.marginLeft, "10px");
+});
+
+test("rgba with spaces + space-mixed tokens is rejected (hex only)", () => {
+  const doc = "%% col-start %%\n%% col-break:m:4 8 b:rgba(59, 130, 246, 0.12) %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  // rgba 不被接受为背景色；margin 多值不受影响
+  assert.equal(s.background, undefined);
+  assert.equal(s.margin, "4px 8px");
+});
+
+test("rgba anywhere in tokens is ignored (hex only)", () => {
+  const doc = "%% col-start %%\n%% col-break:pd:8 t:rgba(255, 255, 255, 0.9) sb:1 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.textColor, undefined);
+  assert.equal(s.padding, "8px");
+  assert.equal(s.showBorder, true);
+});
+
+test("custom colors parse: hex variants only", () => {
+  const doc = "%% col-start %%\n%% col-break:b:#1f2937,bc:#3B82F6,t:#fff %%\nA\n%% col-break %%\nB\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.background, "#1f2937");
+  assert.equal(s.borderColor, "#3B82F6");
+  assert.equal(s.textColor, "#fff");
+});
+
 rmSync(dir, {recursive: true, force: true});

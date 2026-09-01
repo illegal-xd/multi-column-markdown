@@ -68,8 +68,8 @@ Right column
 
 | Token | Property | Values |
 |---|---|---|
-| `b:` | Background | `transparent` `primary` `secondary` `alt` `accent-soft` `red-soft` `orange-soft` `yellow-soft` `green-soft` `cyan-soft` `blue-soft` `pink-soft` |
-| `bc:` | Border color | `transparent` `gray` `accent` `muted` `text` `red` `orange` `yellow` `green` `cyan` `blue` `pink` |
+| `b:` | Background (custom `#hex` allowed) | `transparent` `primary` `secondary` `alt` `accent-soft` `red-soft` `orange-soft` `yellow-soft` `green-soft` `cyan-soft` `blue-soft` `pink-soft`, or `#1f2937`, `#3b82f61f` (8-digit with alpha) |
+| `bc:` | Border color (custom `#hex` allowed) | Same palette as `b:` plus `#3b82f6` |
 | `t:` / `tc:` | Text color | Same as border color |
 | `sb:` | Show border | `1/0`, `true/false`, `yes/no`, `on/off` |
 | `h:` / `hd:` | Horizontal dividers | Same as toggle values |
@@ -81,12 +81,12 @@ Right column
 | `sx:` | Custom separator char | 1–3 chars (with `ss:custom`) |
 | `ta:` | Column content text alignment | `left` `center` `right` |
 | `pd:` | Column padding (default `5px`) | CSS spacing 1–4 values: `8`, `4 8`, `0.5em`, `10%` (numbers → px); a single value applies to all four sides |
-| `br:` | Column border radius (default `4px`) | CSS spacing: `12`, `0.5em`, `4 8 12 16` (numbers → px) |
+| `br:` | Column border radius (default `0`/square unless set) | CSS spacing: `12`, `0.5em`, `4 8 12 16` (numbers → px) |
 | `brl:` / `brt:` / `brr:` / `brb:` | Per-edge border radius (l=left edge, covers top-left+bottom-left; overrides `br:`) | CSS spacing, same as `br:` |
 | `m:` | Column margin shorthand (default `0`) | CSS spacing 1–4 values: `8`, `4 8`, `4 8 12 16`; a single value applies to all four sides |
 | `ml:` / `mt:` / `mr:` / `mb:` | Directional margin (legacy, overrides `m:`) | CSS spacing, same as `pd:` |
-| `bw:` | Column border width (default `1px` when shown) | CSS spacing 1–4 values: `1`, `1 0`, `0.5em`; a single value applies to all four sides |
-| `bwl:` / `bwt:` / `bwr:` / `bwb:` | Per-side border width (overrides `bw:`) | CSS spacing, same as `bw:` |
+| `bw:` | Border width (default `1px` when shown; col-start & col-break) | CSS spacing 1–4 values: `1`, `1 0`, `0.5em`; a single value applies to all four sides |
+| `bwl:` / `bwt:` / `bwr:` / `bwb:` | Per-side border width (overrides `bw:`; unspecified sides stay `0px`/no border) | CSS spacing, same as `bw:` |
 | `g:` | Container gap between columns (default `5px`, col-start) | CSS spacing: `8`, `0.5em`, `10%` (numbers → px) |
 | `stk:` | Stack group id (col-break) | positive integer |
 | `l:` | Container layout (col-start) | `row` (default) `stack` |

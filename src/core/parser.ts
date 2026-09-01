@@ -16,6 +16,7 @@
  * Content between col-start and the FIRST col-break is ignored.
  */
 import type {
+	BackgroundOptionOrCustom,
 	ColumnBackgroundOption,
 	ColumnData,
 	ColumnLayout,
@@ -23,6 +24,7 @@ import type {
 	ColumnStyleData,
 	SeparatorLineStyle,
 	StyleColorOption,
+	StyleColorOptionOrCustom,
 } from "../types";
 
 const START_RE = /^%%\s*col-start(?:\s*:(.*?))?\s*%%$/;
@@ -70,6 +72,23 @@ function isStyleColorOption(value: string): value is StyleColorOption {
 	return STYLE_COLOR_OPTIONS.has(value);
 }
 
+/**
+ * User-supplied CSS color literal: #hex (3/4/6/8 digits). rgb()/rgba() is
+ * intentionally NOT accepted (token separator conflicts with the commas and
+ * spaces inside the function) — hex covers the same use cases cleanly.
+ */
+export function isCssColorLiteral(value: string): boolean {
+	return /^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value);
+}
+
+function isBackgroundOptionOrCustom(value: string): value is BackgroundOptionOrCustom {
+	return isBackgroundOption(value) || isCssColorLiteral(value);
+}
+
+function isStyleColorOptionOrCustom(value: string): value is StyleColorOptionOrCustom {
+	return isStyleColorOption(value) || isCssColorLiteral(value);
+}
+
 const SEPARATOR_STYLE_OPTIONS: ReadonlySet<string> = new Set(["solid", "dashed", "dotted", "double", "custom"]);
 
 function isSeparatorStyle(value: string): value is SeparatorLineStyle {
@@ -106,10 +125,40 @@ function parseCssSpacing(value: string): string | undefined {
 }
 
 /**
+ * Split a value on top-level whitespace only — spaces inside parentheses
+ * (e.g. `rgba(59, 130, 246, 0.12)`) are kept intact so multi-value spacing
+ * tokens and custom color functions survive expansion.
+ */
+function splitTopLevelSpace(value: string): string[] {
+	const parts: string[] = [];
+	let depth = 0;
+	let cur = "";
+	for (const ch of value) {
+		if (ch === "(") {
+			depth++;
+		} else if (ch === ")") {
+			depth = Math.max(0, depth - 1);
+		}
+		if (/\s/.test(ch) && depth === 0) {
+			if (cur.length > 0) {
+				parts.push(cur);
+				cur = "";
+			}
+		} else {
+			cur += ch;
+		}
+	}
+	if (cur.length > 0) parts.push(cur);
+	return parts;
+}
+
+/**
  * Tolerate sloppy token separators:
  * - `b:secondary ml:10` (space-separated, values without spaces) is split
  *   into separate tokens; multi-value spacing tokens like `pd:4 8` are
  *   preserved (their extra segments carry no colon).
+ * - Mixed forms keep the multi-value part: `m:4 8 bw:2` → `m:4 8` + `bw:2`.
+ * - Spaces inside parentheses (`rgba(59, 130, 246, 0.12)`) are never split.
  */
 function expandTokenList(tokens: ReadonlyArray<string>): string[] {
 	const result: string[] = [];
@@ -122,11 +171,13 @@ function expandTokenList(tokens: ReadonlyArray<string>): string[] {
 		const key = token.slice(0, sep).trim().toLowerCase();
 		const value = token.slice(sep + 1).trim();
 		if (value.includes(" ")) {
-			const segments = value.split(/\s+/);
+			const segments = splitTopLevelSpace(value);
 			const extra = segments.slice(1).filter((s) => s.includes(":"));
 			if (extra.length > 0) {
 				// "b:secondary ml:10" → "b:secondary" + "ml:10"
-				result.push(`${key}:${segments[0]}`);
+				// "m:4 8 bw:2" → "m:4 8" + "bw:2"（多值部分整体保留）
+				const kept = segments.filter((s) => !s.includes(":"));
+				result.push(`${key}:${kept.join(" ")}`);
 				result.push(...extra);
 				continue;
 			}
@@ -152,14 +203,14 @@ export function parseStyleTokens(
 
 		switch (key) {
 			case "b":
-				if (isBackgroundOption(rawValue)) style.background = rawValue;
+				if (isBackgroundOptionOrCustom(rawValue)) style.background = rawValue;
 				break;
 			case "bc":
-				if (isStyleColorOption(rawValue)) style.borderColor = rawValue;
+				if (isStyleColorOptionOrCustom(rawValue)) style.borderColor = rawValue;
 				break;
 			case "t":
 			case "tc":
-				if (isStyleColorOption(rawValue)) style.textColor = rawValue;
+				if (isStyleColorOptionOrCustom(rawValue)) style.textColor = rawValue;
 				break;
 			case "sb": {
 				const parsed = parseBoolean(rawValue);
@@ -178,7 +229,7 @@ export function parseStyleTokens(
 				break;
 			}
 			case "sc":
-				if (isStyleColorOption(rawValue)) style.separatorColor = rawValue;
+				if (isStyleColorOptionOrCustom(rawValue)) style.separatorColor = rawValue;
 				break;
 			case "ss":
 				if (isSeparatorStyle(rawValue)) style.separatorStyle = rawValue;
@@ -294,14 +345,39 @@ export function parseStyleTokens(
 	return style && Object.keys(style).length > 0 ? style : undefined;
 }
 
+/**
+ * Split a payload on commas (full-width or ASCII) at the TOP level only —
+ * commas inside parentheses (e.g. `t:rgba(255,255,255,0.9)`) are kept
+ * intact so custom color functions survive token splitting.
+ */
+function splitTopLevelComma(payload: string): string[] {
+	const parts: string[] = [];
+	let depth = 0;
+	let cur = "";
+	for (const ch of payload) {
+		if (ch === "(") {
+			depth++;
+		} else if (ch === ")") {
+			depth = Math.max(0, depth - 1);
+		}
+		if ((ch === "," || ch === "，") && depth === 0) {
+			parts.push(cur);
+			cur = "";
+		} else {
+			cur += ch;
+		}
+	}
+	if (cur.length > 0 || parts.length === 0) parts.push(cur);
+	return parts;
+}
+
 function parseBreakPayload(payload: string | undefined): {
 	width: number;
 	style?: ColumnStyleData;
 	stacked?: number;
 } {
 	if (!payload) return {width: 0};
-	const tokens = payload
-		.split(/[,，]/)
+	const tokens = splitTopLevelComma(payload)
 		.map((token) => token.trim())
 		.filter((token) => token.length > 0);
 	if (tokens.length === 0) return {width: 0};
@@ -362,8 +438,7 @@ function parseStartPayload(payload: string | undefined): {
 	layout?: ColumnLayout;
 } {
 	if (!payload) return {};
-	const tokens = payload
-		.split(/[,，]/)
+	const tokens = splitTopLevelComma(payload)
 		.map((token) => token.trim())
 		.filter((token) => token.length > 0);
 	if (tokens.length === 0) return {};

@@ -31,20 +31,33 @@ export type StyleColorOption =
 	| "blue"
 	| "pink";
 
+/**
+ * User-supplied CSS color literal accepted by color tokens: hex only
+ * (#rgb / #rgba / #rrggbb / #rrggbbaa). rgb()/rgba() functions are not
+ * supported (commas/spaces inside conflict with token separators).
+ */
+export type CssColorLiteral = `#${string}`;
+
+/** Border/text/separator color: named palette option or custom CSS color */
+export type StyleColorOptionOrCustom = StyleColorOption | CssColorLiteral;
+
+/** Background: named palette option or custom CSS color */
+export type BackgroundOptionOrCustom = ColumnBackgroundOption | CssColorLiteral;
+
 export type SeparatorLineStyle = "solid" | "dashed" | "dotted" | "double" | "custom";
 
 export type ColumnLayout = "row" | "stack";
 
 export interface ColumnStyleData {
-	background?: ColumnBackgroundOption;
-	borderColor?: StyleColorOption;
-	textColor?: StyleColorOption;
+	background?: BackgroundOptionOrCustom;
+	borderColor?: StyleColorOptionOrCustom;
+	textColor?: StyleColorOptionOrCustom;
 	showBorder?: boolean;
 	/** Show only left border (callout-style) instead of full border */
 	leftBorder?: boolean;
 	horizontalDividers?: boolean;
 	separator?: boolean;
-	separatorColor?: StyleColorOption;
+	separatorColor?: StyleColorOptionOrCustom;
 	separatorStyle?: SeparatorLineStyle;
 	separatorWidth?: number;
 	separatorCustomChar?: string;

@@ -36,7 +36,6 @@
 	padding: 8px;
 	margin: 0;
 	border: 1px solid transparent;
-	border-radius: 4px;
 	box-sizing: border-box;
 	overflow: visible;
 }
@@ -73,11 +72,11 @@
 	/* Column content horizontal alignment via :ta token */
 	text-align: var(--columns-col-text-align, inherit);
 	/* Column border radius via :br / :brl / :brt / :brr / :brb tokens */
-	border-radius: var(--columns-col-radius, 4px);
-	border-top-left-radius: var(--columns-col-radius-tl, var(--columns-col-radius, 4px));
-	border-top-right-radius: var(--columns-col-radius-tr, var(--columns-col-radius, 4px));
-	border-bottom-right-radius: var(--columns-col-radius-br, var(--columns-col-radius, 4px));
-	border-bottom-left-radius: var(--columns-col-radius-bl, var(--columns-col-radius, 4px));
+	border-radius: var(--columns-col-radius, 0);
+	border-top-left-radius: var(--columns-col-radius-tl, var(--columns-col-radius, 0));
+	border-top-right-radius: var(--columns-col-radius-tr, var(--columns-col-radius, 0));
+	border-bottom-right-radius: var(--columns-col-radius-br, var(--columns-col-radius, 0));
+	border-bottom-left-radius: var(--columns-col-radius-bl, var(--columns-col-radius, 0));
 }
 
 /* Force links/tags inside styled columns to inherit the custom text color */
@@ -119,11 +118,11 @@
 	border-top: none;
 	border-right: none;
 	border-bottom: none;
-	border-left: 3px solid
+	border-left: var(--columns-left-border-width, 3px) solid
 		var(--columns-left-border-color, var(--columns-col-border-color, var(--vscode-button-background)));
 	border-radius: 0
-		var(--columns-col-radius-tr, var(--columns-col-radius, 4px))
-		var(--columns-col-radius-br, var(--columns-col-radius, 4px))
+		var(--columns-col-radius-tr, var(--columns-col-radius, 0))
+		var(--columns-col-radius-br, var(--columns-col-radius, 0))
 		0;
 }
 
@@ -202,6 +201,94 @@
 .columns-container .column-content ul,
 .columns-container .column-content ol {
 	margin: 0.2rem 0;
+}
+
+/* ── Task list checkboxes (antd v5 checkbox style) ──
+   VSCode renders `- [ ]` / `- [x]` as a disabled checkbox input
+   (class task-list-item-checkbox). Restyle it as an antd checkbox:
+   16px, 1px border, 4px radius; checked → primary blue + white tick. */
+.columns-container .column-content input.task-list-item-checkbox {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 16px;
+	height: 16px;
+	margin: 0 8px 0 0;
+	padding: 0;
+	border: 1px solid #d9d9d9;
+	border-radius: 4px;
+	background-color: #ffffff;
+	box-sizing: border-box;
+	cursor: pointer;
+	position: relative;
+	flex-shrink: 0;
+	vertical-align: text-bottom;
+	transition:
+		border-color 0.2s,
+		background-color 0.2s,
+		box-shadow 0.2s;
+}
+
+/* antd hover: border tints toward primary */
+.columns-container .column-content input.task-list-item-checkbox:hover:not(:checked):not(:disabled) {
+	border-color: #4096ff;
+}
+
+/* antd focus ring */
+.columns-container .column-content input.task-list-item-checkbox:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px rgba(5, 145, 255, 0.1);
+}
+
+/* checked: primary fill + white tick */
+.columns-container .column-content input.task-list-item-checkbox:checked {
+	background-color: #1677ff;
+	border-color: #1677ff;
+}
+
+.columns-container .column-content input.task-list-item-checkbox:checked::after {
+	content: "";
+	position: absolute;
+	left: 50%;
+	top: 42%;
+	width: 5px;
+	height: 9px;
+	border: 2px solid #ffffff;
+	border-top: 0;
+	border-left: 0;
+	transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* disabled (VSCode task inputs are always disabled): keep the checked
+   state visible, dim the unchecked one like antd */
+.columns-container .column-content input.task-list-item-checkbox:disabled {
+	cursor: not-allowed;
+}
+
+.columns-container .column-content input.task-list-item-checkbox:disabled:not(:checked) {
+	background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Dark theme: antd dark checkbox palette */
+body.vscode-dark .columns-container .column-content input.task-list-item-checkbox,
+body.vscode-high-contrast .columns-container .column-content input.task-list-item-checkbox {
+	border-color: #424242;
+	background-color: #141414;
+}
+
+body.vscode-dark .columns-container .column-content input.task-list-item-checkbox:hover:not(:checked):not(:disabled),
+body.vscode-high-contrast .columns-container .column-content input.task-list-item-checkbox:hover:not(:checked):not(:disabled) {
+	border-color: #3c89e8;
+}
+
+body.vscode-dark .columns-container .column-content input.task-list-item-checkbox:checked,
+body.vscode-high-contrast .columns-container .column-content input.task-list-item-checkbox:checked {
+	background-color: #1668dc;
+	border-color: #1668dc;
+}
+
+body.vscode-dark .columns-container .column-content input.task-list-item-checkbox:disabled:not(:checked),
+body.vscode-high-contrast .columns-container .column-content input.task-list-item-checkbox:disabled:not(:checked) {
+	background-color: rgba(255, 255, 255, 0.08);
 }
 
 /* Make sure the container never collapses its children */
