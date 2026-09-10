@@ -399,14 +399,12 @@ B
 
 **Markdown 文件嵌入：**
 
-![[README]]
+![[preview/gurd.md|指南内容]]
 
 %% col-break %%
 
 ```markdown
-![[README]]
-![[docs/guide.md]]
-![[docs/guide.md|指南内容]]
+![[preview/gurd.md|指南内容]]
 ```
 
 %% col-end %%
