@@ -349,20 +349,71 @@ B
 
 ---
 
-## Wikilink 与图片
+## Wikilink 与嵌入
+
+### 链接、别名与 URL 锚点
 
 %% col-start %%
 %% col-break %%
 
-链接：[[README]] 或 [[README|带别名]]
+- 普通链接：[[README]]
+- 别名链接：[[README|项目说明]]
+- 标题锚点：[[README#许可|跳到许可]]
+- 块 URL：[[README^block-id|跳到块]]
 
 %% col-break %%
 
-图片：![[./logo.jpg]]
+```markdown
+[[目标]]
+[[目标|显示别名]]
+[[目标#标题|跳到标题]]
+[[目标^block-id|跳到块]]
+```
 
 %% col-end %%
 
-> `[[路径]]` 渲染为可点击链接（相对当前文档解析）；`![[图片.png]]` 渲染为内嵌图片。
+### 图片嵌入 `![[...]]`
+
+%% col-start %%
+%% col-break %%
+
+图片资源：
+
+![[./logo.jpg]]
+
+%% col-break %%
+
+```markdown
+![[图片.png]]
+![[assets/logo.jpg]]
+```
+
+%% col-end %%
+
+### Markdown 内容嵌入 `![[note.md]]`
+
+下面示例会读取工作区中的 `README.md`，并将其 Markdown 内容原地渲染到当前预览中；嵌入内容中的标题、列表、Wikilink、任务列表和多栏语法仍会继续处理。
+
+%% col-start %%
+%% col-break %%
+
+**Markdown 文件嵌入：**
+
+![[README]]
+
+%% col-break %%
+
+```markdown
+![[README]]
+![[docs/guide.md]]
+![[docs/guide.md|指南内容]]
+```
+
+%% col-end %%
+
+> - `[[目标]]` 渲染为可点击链接；`[[目标|别名]]` 显示别名；`[[目标#标题]]` / `[[目标^块ID]]` 附加 URL 锚点（Obsidian 风格）。
+> - `![[图片.png]]` 渲染为 `<img>` 图片；`![[笔记]]` / `![[笔记.md]]` 读取并原地渲染整篇 Markdown。
+> - Markdown 嵌入最多递归 8 层并防止循环引用；文件缺失或非 Markdown 目标回退为 `<img>`，别名在图片回退时作为 alt 文本。
 
 ---
 

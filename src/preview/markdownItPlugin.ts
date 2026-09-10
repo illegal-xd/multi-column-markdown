@@ -262,7 +262,8 @@ function installWikilinkInline(md: MarkdownIt): void {
 		if (silent) return false;
 		const token = state.push("amc_wikilink", "a", 0);
 		const parsed = parseWikilinkTarget(`${String(match[1]).trim()}|${match[2] ?? ""}`);
-		token.attrSet("href", `${parsed.target}.md${wikilinkFragment(parsed.fragment)}`);
+		const hrefTarget = parsed.target.toLowerCase().endsWith(".md") ? parsed.target : `${parsed.target}.md`;
+		token.attrSet("href", `${hrefTarget}${wikilinkFragment(parsed.fragment)}`);
 		token.content = parsed.alias ?? parsed.target;
 		state.pos += match[0].length;
 		return true;
@@ -289,10 +290,11 @@ function installWikilinkInline(md: MarkdownIt): void {
 }
 
 function readMarkdownEmbed(target: string): string | null {
-	if (!target || target.startsWith("/") || target.includes("..")) return null;
+	const normalized = target.replaceAll("\\\\", "/").replace(/^\.\//, "");
+	if (!normalized || normalized.startsWith("/") || normalized.split("/").includes("..")) return null;
 	const folder = vscode.workspace.workspaceFolders?.[0];
 	if (!folder) return null;
-	const candidates = [target, `${target}.md`, `${target}/index.md`];
+	const candidates = [normalized, `${normalized}.md`, `${normalized}/index.md`];
 	for (const candidate of candidates) {
 		const file = path.join(folder.uri.fsPath, candidate);
 		if (!path.relative(folder.uri.fsPath, file).startsWith("..")) {

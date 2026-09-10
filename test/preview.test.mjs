@@ -109,6 +109,12 @@ test("wikilink alias and heading render", () => {
   assert.ok(html.includes(">Read guide</a>"));
 });
 
+test("wikilink paths with an extension do not duplicate .md", () => {
+  const html = render("[[docs/guide.md|Guide]]");
+  assert.ok(html.includes('href="docs/guide.md"'));
+  assert.ok(!html.includes("guide.md.md"));
+});
+
 test("wikilink + image embed render", () => {
   const html = render("[[note|Note]] and ![[img.png|Diagram]]");
   assert.ok(html.includes('href="note.md"'));

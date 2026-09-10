@@ -9,7 +9,7 @@
 import * as vscode from "vscode";
 import {parseWikilinkTarget} from "./core/wikilink";
 
-/** Simple cache keyed by workspace folder + file tree mtime. */
+/** Workspace markdown-file cache keyed by the configured workspace folders. */
 let cache: {key: string; files: string[]} | null = null;
 let filesPromise: Promise<string[]> | null = null;
 
@@ -26,11 +26,7 @@ function cacheKey(): string {
 
 async function findMarkdownFiles(): Promise<string[]> {
 	const uris = await vscode.workspace.findFiles("**/*.md", "**/{node_modules,.git}/**");
-	const folders = vscode.workspace.workspaceFolders ?? [];
-	return uris.map((uri) => {
-		const folder = vscode.workspace.getWorkspaceFolder?.(uri);
-		return folder ? vscode.workspace.asRelativePath(uri, false) : uri.path;
-	}).filter((file) => folders.length === 0 || file.toLowerCase().endsWith(".md"));
+	return uris.map((uri) => vscode.workspace.asRelativePath(uri, false));
 }
 
 /** Refresh the markdown file cache. Cheap: workspace markdown files are
@@ -57,14 +53,21 @@ export function wikilinkLabel(relativePath: string): string {
 /** Resolve a [[target]] to a workspace file URI, or null. */
 export async function resolveWikilinkTarget(rawTarget: string): Promise<vscode.Uri | null> {
 	const {target} = parseWikilinkTarget(rawTarget);
-	if (!target || target.startsWith("/") || target.includes("..")) return null;
-	const files = await getMarkdownFiles();
 	const normalized = target.replaceAll("\\\\", "/").replace(/^\.\//, "");
+	if (!normalized || normalized.startsWith("/") || normalized.split("/").includes("..")) return null;
 	const candidates = new Set([normalized, `${normalized}.md`, `${normalized}/index.md`]);
-	const match = files.find((file) => candidates.has(file) || file.replace(/\.md$/i, "") === normalized);
-	if (!match) return null;
-	const folder = vscode.workspace.workspaceFolders?.[0];
-	return folder ? vscode.Uri.joinPath(folder.uri, match) : null;
+	for (const folder of vscode.workspace.workspaceFolders ?? []) {
+		for (const candidate of candidates) {
+			const uri = vscode.Uri.joinPath(folder.uri, candidate);
+			try {
+				const stat = await vscode.workspace.fs.stat(uri);
+				if (stat.type === vscode.FileType.File) return uri;
+			} catch {
+				// Try the next candidate or workspace folder.
+			}
+		}
+	}
+	return null;
 }
 
 /** Open a wikilink target in the default editor. */

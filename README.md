@@ -24,7 +24,7 @@ written for the Obsidian plugin render identically in the built-in preview.
 - **Style tokens (22)** — background `b:`, border color `bc:` (incl. `transparent`), border width `bw:`/`bwl:`/`bwt:`/`bwr:`/`bwb:`, border radius `br:`/`brl:`/`brt:`/`brr:`/`brb:`, text color `t:`/`tc:`, border toggle `sb:`, horizontal
   dividers `h:`/`hd:`, left border `lb:`, separators `sep:`/`sc:`/`ss:`/`sw:`/`sx:`, text alignment `ta:`, margin shorthand `m:`.
 - **Column headers** — first line `!note: Title` renders as an icon header (built-in `note/info/tip/warning/danger`, customizable).
-- **Wikilinks** — `[[note]]` renders as a clickable link, `![[image.png]]` as an embedded image.
+- **Wikilinks & embeds** — `[[note]]` renders as a clickable link; `[[note|alias]]` shows an alias and `[[note#Heading]]` / `[[note^block]]` add Obsidian-style URL fragments; `![[image.png]]` embeds an image and `![[note]]` / `![[note.md]]` embeds the rendered Markdown content (depth-limited, cycle-safe, falls back to `<img>` when the file is missing).
 - **Templates (10 commands)** — 2/3/4-wide, custom count, nested, sidebar, stacked, Cornell notes, Kanban board, info card.
 - **Theming** — all colors map to VSCode theme tokens (light/dark safe).
 
@@ -126,6 +126,22 @@ Main content with **bold**, `inline code`, etc.
 %% col-end %%
 ```
 
+### Wikilinks & embeds
+
+```markdown
+[[docs/Guide]]                → link to docs/Guide.md
+[[docs/Guide|Read guide]]     → link with alias
+[[docs/Guide#Install|Setup]]  → link with heading anchor  (#install)
+[[note^abc123]]               → link with block URL fragment (#abc123)
+![[image.png]]                → embedded image
+![[docs/guide]]               → embedded Markdown (docs/guide.md rendered in place)
+![[docs/guide.md|Guide]]      → embedded Markdown with caption alias
+```
+
+> Markdown embeds run through the same markdown-it pipeline (columns, wikilinks, task lists included), capped at
+> 8 nesting levels with cycle protection. Non-Markdown targets (`png/jpg/pdf/mp3/mp4/…`) render as `<img>` with the
+> alias used as alt text; a missing file also falls back to `<img>`.
+
 ---
 
 ## Commands
@@ -165,6 +181,7 @@ Main content with **bold**, `inline code`, etc.
   edit width/style tokens instead).
 - **Removed settings**: `enableReadingView` / `enableLivePreview` / `showDragHandles` (no effect in VSCode).
 - **Not ported**: `foldNotePropertiesByDefault` (Obsidian note-properties UI), legacy callout syntax (`[!col]`).
+- **Embed scope**: `![[note]]` / `![[note.md]]` embeds the **whole** Markdown file (same pipeline, `≤ 8` levels, cycle-safe). Heading/block-scoped embeds (`![[note#Heading]]`, `![[note^block]]`), image sizing (`![[img.png|300]]`) and audio/video/PDF embeds are not ported yet; non-Markdown targets and missing files render as a plain `<img>`.
 - **Preview limitation**: markers must be on their own line with blank lines around the block (markdown-it block semantics).
 
 ---
@@ -174,12 +191,19 @@ Main content with **bold**, `inline code`, etc.
 ```bash
 npm install
 npm run build      # type-check + esbuild bundle
+npm test          # unit tests (parser, preview rendering, wikilinks)
+npm run benchmark # parser-cache performance baseline
 npm run package    # build + vsce package
 ```
 
-Architecture: `src/core/` (pure parsing/serialization/style mapping) + `src/preview/` (markdown-it plugin registered
-via the official `markdown.markdownItPlugins` contribution + `extendMarkdownIt` API) + `src/completion.ts` (`[[` file
-completion). No webview/custom editor — a single small extension-host bundle (~19 KB), minimal memory footprint.
+Architecture: `src/core/` (pure logic: `parser.ts` / `serializer.ts` / `style.ts` / `templates.ts` / `wikilink.ts`)
++ `src/preview/` (markdown-it plugin registered via the official `markdown.markdownItPlugins` contribution +
+`extendMarkdownIt` API) + `src/completion.ts` (`[[` file completion). No webview/custom editor — a single small
+extension-host bundle (~27 KB), minimal memory footprint.
+
+Performance: column parsing results are cached per document text (bounded cache), the Markdown file list is fetched
+via `workspace.findFiles()` with a promise-level cache invalidated by a file watcher, and Markdown embeds are capped
+at 8 levels — repeated preview refreshes stay cheap.
 
 ---
 

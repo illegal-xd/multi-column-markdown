@@ -22,7 +22,7 @@
 - **堆叠组** — `stk:N` 将相邻列纵向堆叠；容器级 `l:stack` 整体纵向布局
 - **样式 token（22 种）** — 背景 `b:`、边框色 `bc:`（含 `transparent`）、边框宽度 `bw:`/`bwl:`/`bwt:`/`bwr:`/`bwb:`、圆角 `br:`/`brl:`/`brt:`/`brr:`/`brb:`、文字色 `t:`/`tc:`、边框开关 `sb:`、水平分隔线 `h:`/`hd:`、左边界 `lb:`、分隔符 `sep:`/`sc:`/`ss:`/`sw:`/`sx:`、文字对齐 `ta:`、外边距简写 `m:`
 - **列头** — 列内容首行 `!note: 标题` 渲染为带图标的列头（内置 `note/info/tip/warning/danger`，可自定义）
-- **Wikilink** — `[[笔记]]` 渲染为可点击链接，`![[图片.png]]` 渲染为内嵌图片
+- **Wikilink 与嵌入** — `[[笔记]]` 渲染为可点击链接；`[[笔记|别名]]` 显示别名，`[[笔记#标题]]` / `[[笔记^块ID]]` 支持 Obsidian 风格 URL 锚点；`![[图片.png]]` 内嵌图片，`![[笔记]]` / `![[笔记.md]]` 直接内嵌渲染整篇 Markdown（有深度上限与循环保护，文件缺失时回退为 `<img>`）
 - **模板命令（10 个）** — 两列/三列/四列/自定义列数/嵌套/侧边栏/堆叠/Cornell 笔记/看板/信息卡片
 - **主题适配** — 全部颜色映射 VSCode 主题变量（明暗主题自适应）
 
@@ -122,6 +122,21 @@
 %% col-end %%
 ```
 
+### Wikilink 与嵌入示例
+
+```markdown
+[[docs/Guide]]              → 链接到 docs/Guide.md
+[[docs/Guide|阅读指南]]     → 带别名的链接
+[[docs/Guide#安装|安装说明]] → 带标题锚点的链接（URL fragment）
+[[note^abc123]]             → 带块 ID 的 URL fragment
+![[image.png]]              → 内嵌图片
+![[docs/guide]]             → 内嵌 Markdown（原地渲染 docs/guide.md）
+![[docs/guide.md|指南]]     → 内嵌 Markdown + 说明别名
+```
+
+> Markdown 嵌入走同一套 markdown-it 渲染管线（含列布局、Wikilink、任务列表），最多嵌套 8 层并防止循环引用；
+> 非 Markdown 目标（`png/jpg/pdf/mp3/mp4/…`）渲染为 `<img>`，别名作为 alt 文本；文件缺失时同样回退为 `<img>`。
+
 ---
 
 ## 命令
@@ -156,7 +171,7 @@
 
 - **仅预览渲染**：编辑在 VSCode 原生编辑器中以 marker 文本方式进行（VSCode 无法在源码视图内渲染列布局——平台限制）；预览为只读（不支持拖拽调整/右键样式弹窗，请直接编辑宽度与样式 token）
 - **已移除设置**：`enableReadingView` / `enableLivePreview` / `showDragHandles`（在 VSCode 中无实际作用）
-- **未移植**：`foldNotePropertiesByDefault`（Obsidian 属性面板专属）、legacy callout 语法（`[!col]`）
+- **嵌入范围**：`![[笔记]]` / `![[笔记.md]]` 内嵌整篇 Markdown（同一渲染管线，≤ 8 层，防循环）；标题/块级嵌入（`![[笔记#标题]]`、`![[笔记^块ID]]`）、图片尺寸语法（`![[图片.png|300]]`）以及音视频/PDF 嵌入尚未移植；非 Markdown 目标与缺失文件回退为普通 `<img>`
 - **预览限制**：列标记需独占一行且块前后有空行（markdown-it 块解析语义）
 
 ---
@@ -166,12 +181,17 @@
 ```bash
 npm install
 npm run build      # 类型检查 + esbuild 打包
+npm test          # 单元测试（解析器、预览渲染、Wikilink）
+npm run benchmark # 解析缓存性能基线
 npm run package    # 打包为 vsix
 ```
 
-架构：`src/core/`（解析/序列化/样式映射，纯逻辑）+ `src/preview/`（markdown-it 插件，通过官方
-`markdown.markdownItPlugins` + `extendMarkdownIt` API 注册到内置预览）+ `src/completion.ts`（`[[` 文件补全）。
-无 webview/自定义编辑器，扩展宿主单 bundle（约 19KB），内存占用极小。
+架构：`src/core/`（纯逻辑：`parser.ts` / `serializer.ts` / `style.ts` / `templates.ts` / `wikilink.ts`）+ `src/preview/`
+（markdown-it 插件，通过官方 `markdown.markdownItPlugins` + `extendMarkdownIt` API 注册到内置预览）+
+`src/completion.ts`（`[[` 文件补全）。无 webview/自定义编辑器，扩展宿主单 bundle（约 27KB），内存占用极小。
+
+性能：列解析结果按文档文本做有界缓存；Markdown 文件清单通过 `workspace.findFiles()` 获取，Promise 级缓存并由
+文件监听失效；Markdown 嵌入限制 8 层——预览反复刷新开销极低。
 
 ---
 

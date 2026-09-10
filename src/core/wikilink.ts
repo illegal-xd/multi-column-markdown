@@ -7,7 +7,7 @@ export interface WikilinkTarget {
 /** Parse Obsidian-style target, alias, and heading/block fragment. */
 export function parseWikilinkTarget(raw: string): WikilinkTarget {
 	const [targetAndFragment, alias] = raw.split("|", 2);
-	const fragmentIndex = targetAndFragment.search(/[#{\^]/);
+	const fragmentIndex = targetAndFragment.search(/[#^]/);
 	if (fragmentIndex < 0) return {target: targetAndFragment.trim(), alias: alias?.trim() || undefined};
 	return {
 		target: targetAndFragment.slice(0, fragmentIndex).trim(),
@@ -26,5 +26,5 @@ export function wikilinkFragment(fragment: string | undefined): string {
 }
 
 export function isMarkdownTarget(target: string): boolean {
-	return /(?:^|\/)[^/]+\.md$/i.test(target) || !/\.[a-z0-9]+$/i.test(target);
+	return /(?:^|[\\/])[^\\/]+\.md$/i.test(target) || !/\.[a-z0-9]+$/i.test(target);
 }
