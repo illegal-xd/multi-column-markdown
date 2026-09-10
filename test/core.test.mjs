@@ -427,4 +427,170 @@ test("custom colors parse: hex variants only", () => {
   assert.equal(s.textColor, "#fff");
 });
 
+// ── Fenced-code awareness: markers inside code blocks are documentation ──
+
+test("fenced markers inside a column do not break the block", () => {
+  const doc = [
+    "%% col-start %%",
+    "%% col-break %%",
+    "Syntax example:",
+    "",
+    "```",
+    "%% col-start %%",
+    "```",
+    "%% col-end %%",
+    "",
+    "## Section after",
+  ].join("\n");
+  const r = findColumnRegions(doc);
+  assert.equal(r.length, 1, "the region survives an unbalanced example marker");
+  assert.equal(r[0].columns.length, 1);
+  assert.ok(r[0].columns[0].content.includes("%% col-start %%"), "the example stays in the content");
+});
+
+test("balanced fenced markers are ignored by the scanner", () => {
+  const doc = [
+    "%% col-start %%",
+    "%% col-break %%",
+    "```",
+    "%% col-start %%",
+    "%% col-end %%",
+    "```",
+    "body",
+    "%% col-end %%",
+  ].join("\n");
+  const r = findColumnRegions(doc);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].columns.length, 1);
+  assert.equal(r[0].lineEnd, 7, "the outer col-end closes the region");
+});
+
+test("tilde fences are recognised too", () => {
+  const doc = "%% col-start %%\n%% col-break %%\n~~~\n%% col-end %%\n~~~\nbody\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].lineEnd, 6);
+  assert.ok(r[0].columns[0].content.includes("%% col-end %%"));
+});
+
+test("a nested example block in the ignored header zone keeps the region alive", () => {
+  const doc = [
+    "%% col-start %%",
+    "%% col-start %%",
+    "ignored example",
+    "%% col-end %%",
+    "%% col-break %%",
+    "Left",
+    "%% col-end %%",
+    "",
+    "after",
+  ].join("\n");
+  const r = findColumnRegions(doc);
+  assert.equal(r.length, 1, "the block must not disappear");
+  assert.equal(r[0].columns.length, 1);
+  assert.equal(r[0].columns[0].content, "Left");
+});
+
+test("markers indented by four spaces are code, not markers", () => {
+  const doc = "%% col-start %%\n%% col-break %%\n    %% col-end %%\ntext\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].lineEnd, 4, "the indented marker does not close the region early");
+  // `content` is trimmed by the parser, so only the inner line keeps its indent.
+  assert.equal(r[0].columns[0].content, "%% col-end %%\ntext");
+});
+
+test("malformed input is deterministic: the last col-end closes the region", () => {
+  // Documented behaviour for an unclosed nested block (no error channel yet):
+  // the outermost col-end closes the region, so trailing text lands inside it.
+  const doc = "%% col-start %%\n%% col-break %%\nA\n%% col-start %%\n%% col-break %%\nB\n%% col-end %%\n\nafter\n%% col-end %%\nmore";
+  const r = findColumnRegions(doc);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].lineEnd, 9);
+  assert.ok(r[0].columns[0].content.includes("after"), "trailing text is absorbed by the unclosed block");
+});
+
+// ── Marker spans (lossless write-back foundation) ──
+
+test("marker spans point at the exact marker lines", () => {
+  const doc = "%% col-start:l:stack %%\n%% col-break:40 %%\nA\n%% col-break %%\nB\n%% col-end %%";
+  const r = findColumnRegions(doc)[0];
+  assert.equal(doc.slice(r.containerMarkerOffset[0], r.containerMarkerOffset[1]), "%% col-start:l:stack %%");
+  assert.equal(doc.slice(r.columnMarkerOffsets[0][0], r.columnMarkerOffsets[0][1]), "%% col-break:40 %%");
+  assert.equal(doc.slice(r.columnMarkerOffsets[1][0], r.columnMarkerOffsets[1][1]), "%% col-break %%");
+  assert.equal(doc.slice(r.endMarkerOffset[0], r.endMarkerOffset[1]), "%% col-end %%");
+});
+
+test("content spans cover exactly the column body", () => {
+  const doc = "%% col-start %%\n%% col-break %%\nA1\nA2\n%% col-break %%\nB1\n%% col-end %%";
+  const r = findColumnRegions(doc)[0];
+  assert.equal(doc.slice(r.columnAbsoluteOffsets[0][0], r.columnAbsoluteOffsets[0][1]), "A1\nA2");
+  assert.equal(doc.slice(r.columnAbsoluteOffsets[1][0], r.columnAbsoluteOffsets[1][1]), "B1");
+});
+
+// ── Cache contract ──
+
+const {getRegionCacheStats, clearRegionCache} = await import(join(dir, "parser.mjs"));
+
+test("cached regions are immutable and self-reporting", () => {
+  clearRegionCache();
+  const doc = "%% col-start %%\n%% col-break %%\nA\n%% col-break %%\nB\n%% col-end %%";
+  const before = getRegionCacheStats();
+  const first = findColumnRegions(doc);
+  assert.equal(findColumnRegions(doc), first, "repeat lookups reuse the cached array");
+  assert.throws(() => {
+    first[0].columns[0].content = "mutated";
+  }, "cached columns are frozen");
+  const after = getRegionCacheStats();
+  assert.equal(after.misses - before.misses, 1, "one miss recorded");
+  assert.equal(after.hits - before.hits, 1, "one hit recorded (counters are cumulative)");
+  assert.ok(after.size >= 1);
+});
+
+// ── Style token table ──
+
+test("unknown style tokens are ignored without affecting known ones", () => {
+  const doc = "%% col-start %%\n%% col-break:future:1,b:secondary %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.background, "secondary");
+  assert.equal(s.future, undefined);
+});
+
+test("style token aliases resolve to canonical fields", () => {
+  const doc = "%% col-start %%\n%% col-break:tc:red,h:1,pb:6 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.textColor, "red");
+  assert.equal(s.horizontalDividers, true);
+  assert.equal(s.padding, "6px");
+  assert.deepEqual(
+    serializeStyleTokens(s),
+    ["t:red", "hd:1", "pd:6px"],
+    "serialization uses canonical keys in table order",
+  );
+});
+
+test("style tokens round-trip through parse and serialize", () => {
+  const style = {
+    background: "#1f2937",
+    borderColor: "blue",
+    textColor: "muted",
+    showBorder: false,
+    horizontalDividers: true,
+    separator: true,
+    separatorColor: "accent",
+    separatorStyle: "dashed",
+    separatorWidth: 3,
+    padding: "4px 8px",
+    margin: "0px 4px",
+    gap: "6px",
+    textAlign: "center",
+    borderRadius: "4px 8px",
+    borderWidth: "0px 2px",
+  };
+  const doc = `%% col-start %%\n%% col-break:${serializeStyleTokens(style).join(",")} %%\nA\n%% col-end %%`;
+  const parsed = findColumnRegions(doc)[0].columns[0].style;
+  assert.deepEqual(parsed, style);
+  assert.deepEqual(serializeStyleTokens(parsed), serializeStyleTokens(style));
+});
+
 rmSync(dir, {recursive: true, force: true});

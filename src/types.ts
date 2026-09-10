@@ -128,6 +128,41 @@ export interface ColumnRegion {
 	 * extension host resolves these into document offsets via the path.
 	 */
 	columnAbsoluteOffsets: [number, number][];
+	/**
+	 * Char range of the `%% col-start %%` marker line (trailing newline
+	 * excluded). Lossless patching rewrites exactly this span.
+	 */
+	containerMarkerOffset: [number, number];
+	/** Char range of the `%% col-end %%` marker line (trailing newline excluded). */
+	endMarkerOffset: [number, number];
+	/** Per-column char range of each `%% col-break:… %%` marker line. */
+	columnMarkerOffsets: [number, number][];
+}
+
+/**
+ * Parsed region as a tree node: the flat `ColumnRegion` plus each column's
+ * nested regions (recursively).
+ *
+ * All offsets inside `region` stay relative to the string it was parsed from
+ * (the column content for nested nodes) — `baseOffset` / `baseLine` locate
+ * that string inside the parent document, so absolute positions are
+ * `baseOffset + relative` and `baseLine + relativeLine`.
+ */
+export interface RegionNode {
+	region: ColumnRegion;
+	/** Document char offset of this region's coordinate origin. */
+	baseOffset: number;
+	/** Document line index of line 0 of this region's source. */
+	baseLine: number;
+	columns: ColumnNode[];
+}
+
+export interface ColumnNode {
+	/** Index within the parent region's `columns`. */
+	index: number;
+	column: ColumnData;
+	/** Regions nested inside this column's content, in document order. */
+	childRegions: RegionNode[];
 }
 
 /** Path addressing for nested columns: [columnIndex, regionIndex][] */
@@ -154,6 +189,10 @@ export interface HeaderTypeConfig {
 export interface ColumnsSettings {
 	defaultColumnCount: number;
 	minColumnWidthPercent: number;
+	/**
+	 * @Iteration: [v0.5.0] 未实现的空白配置 — 无拖拽手柄/编辑器，读取后不参与渲染；
+	 * 保留占位（package.json 未声明该项），待编辑器落地时决定去留。
+	 */
 	showDragHandles: boolean;
 	enableSlashSuggest: boolean;
 	inheritStyleOnAdd: boolean;

@@ -123,9 +123,13 @@ test("wikilink + image embed render", () => {
   assert.ok(html.includes('alt="Diagram"'));
 });
 
-test("markdown embeds are bounded when documents contain cyclic embeds", () => {
+test("unresolvable markdown embeds fall back to an image tag", () => {
+  // No workspace folder is configured here, so the target cannot be read.
+  // The real expansion / cycle / budget behaviour is covered by
+  // embed.test.mjs, which runs against a temporary workspace.
   const html = render("![[cycle.md]]");
-  assert.ok(html.length < 100000);
+  assert.ok(html.includes('class="amc-embed"'));
+  assert.ok(!html.includes("amc-embed-cycle"));
 });
 
 test("unclosed region kept as text", () => {
@@ -411,4 +415,56 @@ test("default column radius is 0 (no 4px fallback)", () => {
   const css = readFileSync(new URL("../media/previewStyle.css", import.meta.url), "utf8");
   assert.ok(css.includes("border-radius: var(--columns-col-radius, 0);"));
   assert.ok(!css.includes("var(--columns-col-radius, 4px)"));
+});
+
+test("nesting past the depth cap keeps the content visible", () => {
+  const nest = (depth) =>
+    depth === 0 ? "DEEP TEXT" : `%% col-start %%\n%% col-break %%\n${nest(depth - 1)}\n%% col-end %%`;
+  const html = render(nest(10));
+  assert.ok(html.includes("DEEP TEXT"), "content must never be dropped silently");
+  assert.ok(html.includes("amc-parse-fallback"), "the un-expanded level is marked");
+});
+
+test("the preview stylesheet styles the degradation markers", () => {
+  const css = readFileSync(new URL("../media/previewStyle.css", import.meta.url), "utf8");
+  for (const cls of [".amc-parse-fallback", ".amc-embed-cycle", ".amc-embed-limited"]) {
+    assert.ok(css.includes(cls), `${cls} has no styles`);
+  }
+});
+
+test("ruler and parser agree on a block with a nested example in the header zone", () => {
+  // Regression: the ruler used to consume a different line range than the
+  // parser produced, so the block rendered as literal text.
+  const doc = [
+    "%% col-start %%",
+    "%% col-start %%",
+    "ignored example",
+    "%% col-end %%",
+    "%% col-break %%",
+    "Left",
+    "%% col-end %%",
+  ].join("\n");
+  const html = render(doc);
+  assert.equal((html.match(/columns-container/g) ?? []).length, 1);
+  assert.ok(html.includes("Left"));
+  assert.ok(!html.includes("ignored example"), "the header zone stays ignored");
+});
+
+test("fenced marker examples render as code, not as layout", () => {
+  const html = render([
+    "%% col-start %%",
+    "%% col-break %%",
+    "```",
+    "%% col-start %%",
+    "```",
+    "%% col-end %%",
+  ].join("\n"));
+  assert.equal((html.match(/columns-container/g) ?? []).length, 1, "one column block, not two");
+  assert.ok(html.includes("<pre><code>%% col-start %%"), "the example renders as a code block");
+});
+
+test("an empty column region renders no fallback wrapper", () => {
+  const html = render("%% col-start %%\n%% col-break %%\n%% col-end %%");
+  assert.ok(html.includes("columns-container"));
+  assert.ok(!html.includes("amc-parse-fallback"));
 });

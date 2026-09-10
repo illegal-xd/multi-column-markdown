@@ -23,7 +23,6 @@ written for the Obsidian plugin render identically in the built-in preview.
 - **Stack groups** — `stk:N` stacks adjacent columns vertically; container-level `l:stack` lays out the whole block top-to-bottom.
 - **Style tokens (22)** — background `b:`, border color `bc:` (incl. `transparent`), border width `bw:`/`bwl:`/`bwt:`/`bwr:`/`bwb:`, border radius `br:`/`brl:`/`brt:`/`brr:`/`brb:`, text color `t:`/`tc:`, border toggle `sb:`, horizontal
   dividers `h:`/`hd:`, left border `lb:`, separators `sep:`/`sc:`/`ss:`/`sw:`/`sx:`, text alignment `ta:`, margin shorthand `m:`.
-- **Column headers** — first line `!note: Title` renders as an icon header (built-in `note/info/tip/warning/danger`, customizable).
 - **Wikilinks & embeds** — `[[note]]` renders as a clickable link; `[[note|alias]]` shows an alias and `[[note#Heading]]` / `[[note^block]]` add Obsidian-style URL fragments; `![[image.png]]` embeds an image and `![[note]]` / `![[note.md]]` embeds the rendered Markdown content (depth-limited, cycle-safe, falls back to `<img>` when the file is missing).
 - **Templates (10 commands)** — 2/3/4-wide, custom count, nested, sidebar, stacked, Cornell notes, Kanban board, info card.
 - **Theming** — all colors map to VSCode theme tokens (light/dark safe).
@@ -114,14 +113,14 @@ Right column
 ```markdown
 %% col-start:bc:muted %%
 %% col-break:30,stk:1,b:secondary,lb:1 %%
-!note: Nav
+**Nav**
 - Home
 - Docs
 %% col-break:stk:1,b:secondary %%
-!info: Status
+**Status**
 Online
 %% col-break:70,b:alt %%
-!tip: Body
+**Body**
 Main content with **bold**, `inline code`, etc.
 %% col-end %%
 ```
@@ -170,16 +169,15 @@ Main content with **bold**, `inline code`, etc.
 - **Appearance** — `containerBackground`, `showContainerBorder`, `containerBorderWidthPx`, `containerBorderColor`,
   `containerCornerRadiusPx`, `containerTextColor`, `verticalDividerWidthPx`, `verticalDividerStyle`, `verticalDividerColor`,
   `styleTargetMode` / `styleTargetColumnIndex`
-- **Headers** — `enableHeaders` + `headerTypes` (JSON array; see package.json for the default presets)
 
 ---
 
 ## Differences from the Obsidian plugin
 
 - **Preview rendering only**: editing happens on the marker text in the built-in editor (VSCode cannot render
-  column layouts inside the source view — platform limitation); the preview is read-only (no drag-resize/style popover;
-  edit width/style tokens instead).
-- **Removed settings**: `enableReadingView` / `enableLivePreview` / `showDragHandles` (no effect in VSCode).
+  column layouts inside the source view — platform limitation); the preview is read-only — edit width/style
+  tokens in the source text instead.
+- **Removed settings**: `enableReadingView` / `enableLivePreview` (no effect in VSCode).
 - **Not ported**: `foldNotePropertiesByDefault` (Obsidian note-properties UI), legacy callout syntax (`[!col]`).
 - **Embed scope**: `![[note]]` / `![[note.md]]` embeds the **whole** Markdown file (same pipeline, `≤ 8` levels, cycle-safe). Heading/block-scoped embeds (`![[note#Heading]]`, `![[note^block]]`), image sizing (`![[img.png|300]]`) and audio/video/PDF embeds are not ported yet; non-Markdown targets and missing files render as a plain `<img>`.
 - **Preview limitation**: markers must be on their own line with blank lines around the block (markdown-it block semantics).

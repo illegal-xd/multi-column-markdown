@@ -296,3 +296,24 @@ body.vscode-high-contrast .columns-container .column-content input.task-list-ite
 .columns-container > .columns-stack-group {
 	min-height: 40px;
 }
+
+/* ── Degradation markers ──
+   Rendered when a block cannot be laid out as columns or an embed cannot be
+   expanded. They must stay visible: silently dropping content is worse than
+   showing the source. */
+.amc-parse-fallback {
+	border-left: 3px solid var(--vscode-editorWarning-foreground, #cca700);
+	padding-left: 10px;
+	opacity: 0.9;
+}
+
+.amc-embed-cycle,
+.amc-embed-limited {
+	display: block;
+	padding: 2px 8px;
+	border-radius: 3px;
+	font-size: 0.9em;
+	color: var(--vscode-descriptionForeground);
+	background-color: var(--vscode-textBlockQuote-background);
+	border-left: 3px solid var(--vscode-panel-border);
+}

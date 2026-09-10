@@ -21,7 +21,6 @@
 - **宽度控制** — `%% col-break:30 %%` 指定百分比宽度（也支持 `w:40` 写法）；总和超 100% 自动回退等宽
 - **堆叠组** — `stk:N` 将相邻列纵向堆叠；容器级 `l:stack` 整体纵向布局
 - **样式 token（22 种）** — 背景 `b:`、边框色 `bc:`（含 `transparent`）、边框宽度 `bw:`/`bwl:`/`bwt:`/`bwr:`/`bwb:`、圆角 `br:`/`brl:`/`brt:`/`brr:`/`brb:`、文字色 `t:`/`tc:`、边框开关 `sb:`、水平分隔线 `h:`/`hd:`、左边界 `lb:`、分隔符 `sep:`/`sc:`/`ss:`/`sw:`/`sx:`、文字对齐 `ta:`、外边距简写 `m:`
-- **列头** — 列内容首行 `!note: 标题` 渲染为带图标的列头（内置 `note/info/tip/warning/danger`，可自定义）
 - **Wikilink 与嵌入** — `[[笔记]]` 渲染为可点击链接；`[[笔记|别名]]` 显示别名，`[[笔记#标题]]` / `[[笔记^块ID]]` 支持 Obsidian 风格 URL 锚点；`![[图片.png]]` 内嵌图片，`![[笔记]]` / `![[笔记.md]]` 直接内嵌渲染整篇 Markdown（有深度上限与循环保护，文件缺失时回退为 `<img>`）
 - **模板命令（10 个）** — 两列/三列/四列/自定义列数/嵌套/侧边栏/堆叠/Cornell 笔记/看板/信息卡片
 - **主题适配** — 全部颜色映射 VSCode 主题变量（明暗主题自适应）
@@ -110,14 +109,14 @@
 ```markdown
 %% col-start:bc:muted %%
 %% col-break:30,stk:1,b:secondary,lb:1 %%
-!note: 导航
+**导航**
 - 首页
 - 文档
 %% col-break:stk:1,b:secondary %%
-!info: 状态
+**状态**
 在线
 %% col-break:70,b:alt %%
-!tip: 正文
+**正文**
 主内容区，支持 **粗体**、`行内代码` 等。
 %% col-end %%
 ```
@@ -163,14 +162,13 @@
 
 - **通用**：`defaultColumnCount`（自定义布局默认列数）、`minColumnWidthPercent`（最小列宽 %）、`inheritStyleOnAdd`
 - **外观**：容器背景 `containerBackground`、边框 `showContainerBorder`/`containerBorderWidthPx`/`containerBorderColor`、圆角 `containerCornerRadiusPx`、文字色 `containerTextColor`、分隔线 `verticalDividerWidthPx`/`verticalDividerStyle`/`verticalDividerColor`、`styleTargetMode`/`styleTargetColumnIndex`
-- **列头**：`enableHeaders` + `headerTypes`（JSON 数组，参考 package.json 默认预设）
 
 ---
 
 ## 与 Obsidian 原版的差异
 
-- **仅预览渲染**：编辑在 VSCode 原生编辑器中以 marker 文本方式进行（VSCode 无法在源码视图内渲染列布局——平台限制）；预览为只读（不支持拖拽调整/右键样式弹窗，请直接编辑宽度与样式 token）
-- **已移除设置**：`enableReadingView` / `enableLivePreview` / `showDragHandles`（在 VSCode 中无实际作用）
+- **仅预览渲染**：编辑在 VSCode 原生编辑器中以 marker 文本方式进行（VSCode 无法在源码视图内渲染列布局——平台限制）；预览为只读——请直接编辑源码中的宽度与样式 token。
+- **已移除设置**：`enableReadingView` / `enableLivePreview`（在 VSCode 中无实际作用）。
 - **嵌入范围**：`![[笔记]]` / `![[笔记.md]]` 内嵌整篇 Markdown（同一渲染管线，≤ 8 层，防循环）；标题/块级嵌入（`![[笔记#标题]]`、`![[笔记^块ID]]`）、图片尺寸语法（`![[图片.png|300]]`）以及音视频/PDF 嵌入尚未移植；非 Markdown 目标与缺失文件回退为普通 `<img>`
 - **预览限制**：列标记需独占一行且块前后有空行（markdown-it 块解析语义）
 

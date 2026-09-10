@@ -12,37 +12,16 @@ import type {
 	StyleColorOption,
 	StyleTargetMode,
 } from "./types";
+import {BACKGROUND_OPTION_VALUES, CONFIG_COLOR_OPTION_VALUES} from "./core/palette";
 
 const CONFIG_SECTION = "multiColumnMarkdown";
 
-export const BACKGROUND_OPTION_VALUES: ColumnBackgroundOption[] = [
-	"transparent",
-	"primary",
-	"secondary",
-	"alt",
-	"accent-soft",
-	"red-soft",
-	"orange-soft",
-	"yellow-soft",
-	"green-soft",
-	"cyan-soft",
-	"blue-soft",
-	"pink-soft",
-];
+// Derived from the palette (single source of truth for the color vocabulary);
+// the enums in package.json are asserted against these in the test suite.
+export {BACKGROUND_OPTION_VALUES};
 
-export const STYLE_COLOR_OPTION_VALUES: StyleColorOption[] = [
-	"gray",
-	"accent",
-	"muted",
-	"text",
-	"red",
-	"orange",
-	"yellow",
-	"green",
-	"cyan",
-	"blue",
-	"pink",
-];
+/** Config-level colors: the palette minus `transparent` (inline-only). */
+export const STYLE_COLOR_OPTION_VALUES: StyleColorOption[] = CONFIG_COLOR_OPTION_VALUES;
 
 export const DIVIDER_STYLE_VALUES: DividerLineStyle[] = ["solid", "dashed", "dotted", "double"];
 
@@ -57,6 +36,7 @@ export const DEFAULT_HEADER_TYPES: HeaderTypeConfig[] = [
 export const DEFAULT_SETTINGS: ColumnsSettings = {
 	defaultColumnCount: 2,
 	minColumnWidthPercent: 10,
+	// @Iteration: [v0.5.0] 读取后无消费者（无编辑器/拖拽手柄）——见 types.ts 同名项
 	showDragHandles: true,
 	enableSlashSuggest: true,
 	inheritStyleOnAdd: true,

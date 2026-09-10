@@ -11,5 +11,7 @@ tsconfig.json
 CHANGELOG.md
 # Environment/tooling artifacts that must not ship in the vsix
 .aspirecode/**
+.marscode/**
+test/**
 pnpm-lock.yaml
 pnpm-workspace.yaml

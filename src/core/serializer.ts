@@ -5,6 +5,21 @@
  * CodeMirror/EditorView coupling: the VSCode host performs document edits, so
  * `dispatchUpdate` is replaced by pure functions returning the next document
  * text (see `serializeRegionUpdate` / `applyRegionEdit`).
+ *
+ * ⚠️ STATUS: archived (reserved, not wired up).
+ *
+ * The mutation helpers below are the Obsidian plugin's editor-write-back
+ * layer. This extension has no column editor yet, so nothing in production
+ * calls them — the only live export is `buildStandaloneBlockInsertion`
+ * (`core/templates.ts`). They also rebuild whole regions through
+ * `serializeColumns`, which canonicalizes tokens and would drop unknown
+ * tokens from a user's document.
+ *
+ * The write-back path that IS maintained is `core/patch.ts` (lossless,
+ * span-based). Wire the editor to that module rather than to these helpers;
+ * keep this file until the editor decides what it needs from it.
+ *
+ * @Iteration: [v0.5.0] 幽灵 Core 归档 — 生产调用数 0（templates 除外）；替代者: core/patch.ts（无损写回）+ core/tree.ts（结构寻址）
  */
 import {findColumnRegions, serializeColumns} from "./parser";
 import type {ColumnData, ColumnLayout, ColumnRegion, ColumnStyleData} from "../types";
@@ -176,7 +191,7 @@ export function removeColumnAtPath(
 	const parentColumn = columns[head.columnIndex];
 	if (!parentColumn) return {nextColumns: columns, removed: false};
 
-	const regions = findColumnRegions(parentColumn.content).sort((a, b) => a.from - b.from);
+	const regions = [...findColumnRegions(parentColumn.content)].sort((a, b) => a.from - b.from);
 	const region = regions[head.regionIndex];
 	if (!region) return {nextColumns: columns, removed: false};
 
@@ -230,7 +245,7 @@ export function getColumnsAtPath(columns: ColumnData[], path: ContainerPath): Co
 	if (!head) return columns;
 	const col = columns[head.columnIndex];
 	if (!col) return null;
-	const regions = findColumnRegions(col.content).sort((a, b) => a.from - b.from);
+	const regions = [...findColumnRegions(col.content)].sort((a, b) => a.from - b.from);
 	const region = regions[head.regionIndex];
 	if (!region) return null;
 	return getColumnsAtPath(region.columns, rest);
@@ -246,7 +261,7 @@ export function updateColumnsAtPath(
 	if (!head) return updater(columns);
 	return columns.map((col, index) => {
 		if (index !== head.columnIndex) return col;
-		const regions = findColumnRegions(col.content).sort((a, b) => a.from - b.from);
+		const regions = [...findColumnRegions(col.content)].sort((a, b) => a.from - b.from);
 		const region = regions[head.regionIndex];
 		if (!region) return col;
 		const nextRegionColumns = updateColumnsAtPath(region.columns, rest, updater);

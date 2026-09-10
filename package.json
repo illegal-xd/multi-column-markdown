@@ -1,8 +1,8 @@
 {
   "name": "multi-column-markdown",
   "displayName": "Advanced Multi Column",
-  "description": "Create interactive, nested multi-column layouts in Markdown — marker-based syntax (%% col-start %%), with a full-featured column editor, native preview rendering, drag-to-resize, drag-to-reorder, style popover and wikilink support.",
-  "version": "0.4.0",
+  "description": "Render interactive, nested multi-column layouts in Markdown preview — marker-based syntax (%% col-start %%), style tokens, stack groups, wikilinks and embeds.",
+  "version": "0.4.1",
   "publisher": "local",
   "license": "AGPL-3.0",
   "icon": "media/icon.png",
@@ -152,17 +152,17 @@
           "default": 10,
           "minimum": 5,
           "maximum": 30,
-          "markdownDescription": "Minimum column width (%) enforced when resizing columns by dragging the divider."
+          "markdownDescription": "[Not implemented yet] Minimum column width (%) enforced when resizing columns by dragging the divider."
         },
         "multiColumnMarkdown.inheritStyleOnAdd": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "When adding a column, inherit the style of the neighboring column."
+          "markdownDescription": "[Not implemented yet] When adding a column, inherit the style of the neighboring column."
         },
         "multiColumnMarkdown.enableSlashSuggest": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Show slash-command suggestions (`/`) inside column editors."
+          "markdownDescription": "[Not implemented yet] Show slash-command suggestions (`/`) inside column editors."
         },
         "multiColumnMarkdown.styleTargetMode": {
           "type": "string",
@@ -175,14 +175,14 @@
             "Apply container appearance to a specific column index"
           ],
           "default": "all",
-          "markdownDescription": "Style target for the container appearance defaults below."
+          "markdownDescription": "[Not implemented yet] Style target for the container appearance defaults below."
         },
         "multiColumnMarkdown.styleTargetColumnIndex": {
           "type": "number",
           "default": 1,
           "minimum": 1,
           "maximum": 6,
-          "markdownDescription": "Column index (1-based) used when `styleTargetMode` is `specific`."
+          "markdownDescription": "[Not implemented yet] Column index (1-based) used when `styleTargetMode` is `specific`."
         },
         "multiColumnMarkdown.containerBackground": {
           "type": "string",
@@ -215,19 +215,19 @@
             "Pink tint"
           ],
           "default": "primary",
-          "markdownDescription": "Default container background."
+          "markdownDescription": "[Not implemented yet] Default container background."
         },
         "multiColumnMarkdown.showContainerBorder": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Show the container border."
+          "markdownDescription": "[Not implemented yet] Show the container border."
         },
         "multiColumnMarkdown.containerBorderWidthPx": {
           "type": "number",
           "default": 1,
           "minimum": 0,
           "maximum": 8,
-          "markdownDescription": "Container border width (px)."
+          "markdownDescription": "[Not implemented yet] Container border width (px)."
         },
         "multiColumnMarkdown.containerBorderColor": {
           "type": "string",
@@ -245,14 +245,14 @@
             "pink"
           ],
           "default": "gray",
-          "markdownDescription": "Container border color."
+          "markdownDescription": "[Not implemented yet] Container border color."
         },
         "multiColumnMarkdown.containerCornerRadiusPx": {
           "type": "number",
           "default": 8,
           "minimum": 0,
           "maximum": 24,
-          "markdownDescription": "Container corner radius (px)."
+          "markdownDescription": "[Not implemented yet] Container corner radius (px)."
         },
         "multiColumnMarkdown.containerTextColor": {
           "type": "string",
@@ -270,14 +270,14 @@
             "pink"
           ],
           "default": "text",
-          "markdownDescription": "Container text color."
+          "markdownDescription": "[Not implemented yet] Container text color."
         },
         "multiColumnMarkdown.verticalDividerWidthPx": {
           "type": "number",
           "default": 1,
           "minimum": 0,
           "maximum": 8,
-          "markdownDescription": "Width of the divider between columns (px)."
+          "markdownDescription": "[Not implemented yet] Width of the divider between columns (px)."
         },
         "multiColumnMarkdown.verticalDividerStyle": {
           "type": "string",
@@ -288,7 +288,7 @@
             "double"
           ],
           "default": "solid",
-          "markdownDescription": "Line style of the divider between columns."
+          "markdownDescription": "[Not implemented yet] Line style of the divider between columns."
         },
         "multiColumnMarkdown.verticalDividerColor": {
           "type": "string",
@@ -306,12 +306,12 @@
             "pink"
           ],
           "default": "gray",
-          "markdownDescription": "Color of the divider between columns."
+          "markdownDescription": "[Not implemented yet] Color of the divider between columns."
         },
         "multiColumnMarkdown.enableHeaders": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Render column headers from `!type: Title` first lines. Configure header types with the **Advanced Multi Column: Configure Column Headers** command."
+          "markdownDescription": "[Not implemented yet] Render column headers from `!type: Title` first lines. Configure header types with the **Advanced Multi Column: Configure Column Headers** command."
         },
         "multiColumnMarkdown.headerTypes": {
           "type": "array",
@@ -357,7 +357,7 @@
               "fontWeight": 600
             }
           ],
-          "markdownDescription": "Column header type presets. Edit via **Advanced Multi Column: Configure Column Headers** or directly as JSON."
+          "markdownDescription": "[Not implemented yet] Column header type presets. Edit via **Advanced Multi Column: Configure Column Headers** or directly as JSON."
         }
       }
     },
