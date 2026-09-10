@@ -6,15 +6,17 @@
  * workspace-relative markdown path, matching Obsidian's common resolution
  * rules: exact file, file.md, folder/index or folder.
  */
-import * as path from "path";
 import * as vscode from "vscode";
+import {parseWikilinkTarget} from "./core/wikilink";
 
 /** Simple cache keyed by workspace folder + file tree mtime. */
 let cache: {key: string; files: string[]} | null = null;
+let filesPromise: Promise<string[]> | null = null;
 
 /** Invalidate suggestions after workspace files change. */
 export function invalidateWikilinkCache(): void {
 	cache = null;
+	filesPromise = null;
 }
 
 function cacheKey(): string {
@@ -22,40 +24,20 @@ function cacheKey(): string {
 	return folders.map((f) => f.uri.fsPath).join("|");
 }
 
-/** Recursively list markdown files (relative paths) under a workspace folder. */
-async function listMarkdownFilesInFolder(folder: vscode.WorkspaceFolder): Promise<string[]> {
-	const files: string[] = [];
-	const walk = async (dirUri: vscode.Uri): Promise<void> => {
-		let entries: [string, vscode.FileType][];
-		try {
-			entries = await vscode.workspace.fs.readDirectory(dirUri);
-		} catch {
-			return;
-		}
-		for (const [name, type] of entries) {
-			if (name === "node_modules" || name === ".git" || name.startsWith(".")) continue;
-			const child = vscode.Uri.joinPath(dirUri, name);
-			if (type === vscode.FileType.Directory) {
-				await walk(child);
-			} else if (type === vscode.FileType.File && name.toLowerCase().endsWith(".md")) {
-				files.push(path.relative(folder.uri.fsPath, child.fsPath));
-			}
-		}
-	};
-	await walk(folder.uri);
-	return files;
+async function findMarkdownFiles(): Promise<string[]> {
+	const uris = await vscode.workspace.findFiles("**/*.md", "**/{node_modules,.git}/**");
+	const folders = vscode.workspace.workspaceFolders ?? [];
+	return uris.map((uri) => {
+		const folder = vscode.workspace.getWorkspaceFolder?.(uri);
+		return folder ? vscode.workspace.asRelativePath(uri, false) : uri.path;
+	}).filter((file) => folders.length === 0 || file.toLowerCase().endsWith(".md"));
 }
 
 /** Refresh the markdown file cache. Cheap: workspace markdown files are
  *  usually a few hundred at most; refresh is debounced by callers. */
 export async function refreshWikilinkCache(): Promise<string[]> {
 	const key = cacheKey();
-	const folders = vscode.workspace.workspaceFolders ?? [];
-	const all: string[] = [];
-	for (const folder of folders) {
-		all.push(...(await listMarkdownFilesInFolder(folder)));
-	}
-	const files = [...new Set(all)].sort((a, b) => a.localeCompare(b));
+	const files = [...new Set(await findMarkdownFiles())].sort((a, b) => a.localeCompare(b));
 	cache = {key, files};
 	return files;
 }
@@ -63,7 +45,8 @@ export async function refreshWikilinkCache(): Promise<string[]> {
 export async function getMarkdownFiles(): Promise<string[]> {
 	const key = cacheKey();
 	if (cache && cache.key === key) return cache.files;
-	return refreshWikilinkCache();
+	if (!filesPromise) filesPromise = refreshWikilinkCache();
+	return filesPromise;
 }
 
 /** Strip the `.md` extension (Obsidian-style suggestion label). */
@@ -72,27 +55,16 @@ export function wikilinkLabel(relativePath: string): string {
 }
 
 /** Resolve a [[target]] to a workspace file URI, or null. */
-export async function resolveWikilinkTarget(target: string): Promise<vscode.Uri | null> {
-	const folders = vscode.workspace.workspaceFolders ?? [];
-	if (folders.length === 0) return null;
-	const candidates = [
-		target,
-		`${target}.md`,
-		path.join(target, "index.md"),
-		path.join(target, `${path.basename(target)}.md`),
-	];
-	for (const folder of folders) {
-		for (const candidate of candidates) {
-			const uri = vscode.Uri.joinPath(folder.uri, candidate);
-			try {
-				const stat = await vscode.workspace.fs.stat(uri);
-				if (stat.type === vscode.FileType.File) return uri;
-			} catch {
-				// try next candidate
-			}
-		}
-	}
-	return null;
+export async function resolveWikilinkTarget(rawTarget: string): Promise<vscode.Uri | null> {
+	const {target} = parseWikilinkTarget(rawTarget);
+	if (!target || target.startsWith("/") || target.includes("..")) return null;
+	const files = await getMarkdownFiles();
+	const normalized = target.replaceAll("\\\\", "/").replace(/^\.\//, "");
+	const candidates = new Set([normalized, `${normalized}.md`, `${normalized}/index.md`]);
+	const match = files.find((file) => candidates.has(file) || file.replace(/\.md$/i, "") === normalized);
+	if (!match) return null;
+	const folder = vscode.workspace.workspaceFolders?.[0];
+	return folder ? vscode.Uri.joinPath(folder.uri, match) : null;
 }
 
 /** Open a wikilink target in the default editor. */

@@ -17,7 +17,11 @@
  * to the reference implementation.
  */
 import MarkdownIt from "markdown-it";
+import * as fs from "fs";
+import * as path from "path";
+import * as vscode from "vscode";
 import {findColumnRegions} from "../core/parser";
+import {isMarkdownTarget, parseWikilinkTarget, wikilinkFragment} from "../core/wikilink";
 import type {ColumnData, ColumnRegion} from "../types";
 import {applyColumnStyleVars, applyContainerStyleVars, resolveColor} from "./styleVars";
 import type {ColumnStyleData} from "../types";
@@ -226,7 +230,7 @@ function installTaskLists(md: MarkdownIt): void {
 function installWikilinkInline(md: MarkdownIt): void {
 	const m = md as unknown as {
 		inline: {ruler: {before(anchor: string, name: string, rule: (state: InlineState, silent: boolean) => boolean): void}};
-		renderer: {rules: Record<string, (tokens: Array<{attrGet(n: string): string | null; content: string}>, idx: number) => string>};
+		renderer: {rules: Record<string, (tokens: Array<{attrGet(n: string): string | null; content: string}>, idx: number, options?: unknown, env?: unknown) => string>};
 	};
 
 	const linkRe = /^\[\[([^\[\]|]+)(?:\|([^\[\]]+))?\]\]/;
@@ -240,9 +244,11 @@ function installWikilinkInline(md: MarkdownIt): void {
 		if (!match) return false;
 		if (silent) return false;
 		const token = state.push("amc_wikilink_embed", "img", 0);
-		const target = String(match[1]).trim();
-		token.attrSet("src", target);
-		token.attrSet("alt", (match[2] ?? match[1] ?? "").trim());
+		const rawTarget = String(match[1]).trim();
+		const parsed = parseWikilinkTarget(`${rawTarget}|${match[2] ?? ""}`);
+		token.attrSet("src", parsed.target + wikilinkFragment(parsed.fragment));
+		token.attrSet("alt", (parsed.alias ?? parsed.target).trim());
+		token.attrSet("data-amc-markdown", isMarkdownTarget(parsed.target) ? "true" : "false");
 		state.pos += match[0].length;
 		return true;
 	});
@@ -255,9 +261,9 @@ function installWikilinkInline(md: MarkdownIt): void {
 		if (!match) return false;
 		if (silent) return false;
 		const token = state.push("amc_wikilink", "a", 0);
-		const target = String(match[1]).trim();
-		token.attrSet("href", `${target}.md`);
-		token.content = (match[2] ?? match[1] ?? "").trim();
+		const parsed = parseWikilinkTarget(`${String(match[1]).trim()}|${match[2] ?? ""}`);
+		token.attrSet("href", `${parsed.target}.md${wikilinkFragment(parsed.fragment)}`);
+		token.content = parsed.alias ?? parsed.target;
 		state.pos += match[0].length;
 		return true;
 	});
@@ -266,10 +272,38 @@ function installWikilinkInline(md: MarkdownIt): void {
 		const t = tokens[idx]!;
 		return `<a class="amc-wikilink" href="${escapeAttr(t.attrGet("href") ?? "#")}">${escapeHtml(t.content)}</a>`;
 	};
-	m.renderer.rules["amc_wikilink_embed"] = (tokens, idx) => {
+	m.renderer.rules["amc_wikilink_embed"] = (tokens, idx, _options, env) => {
 		const t = tokens[idx]!;
-		return `<img class="amc-embed" src="${escapeAttr(t.attrGet("src") ?? "")}" alt="${escapeAttr(t.attrGet("alt") ?? "")}">`;
+		const src = t.attrGet("src") ?? "";
+		const target = src.split("#", 1)[0]!;
+		const embedDepth = (env as {amcEmbedDepth?: number} | undefined)?.amcEmbedDepth ?? 0;
+		if (t.attrGet("data-amc-markdown") === "true" && embedDepth < 8) {
+			const embedded = readMarkdownEmbed(target);
+			if (embedded !== null) {
+				const nextEnv = {...(env as object), amcEmbedDepth: embedDepth + 1};
+				return `<div class="amc-embed-markdown">${md.render(embedded, nextEnv)}</div>`;
+			}
+		}
+		return `<img class="amc-embed" src="${escapeAttr(src)}" alt="${escapeAttr(t.attrGet("alt") ?? "")}">`;
 	};
+}
+
+function readMarkdownEmbed(target: string): string | null {
+	if (!target || target.startsWith("/") || target.includes("..")) return null;
+	const folder = vscode.workspace.workspaceFolders?.[0];
+	if (!folder) return null;
+	const candidates = [target, `${target}.md`, `${target}/index.md`];
+	for (const candidate of candidates) {
+		const file = path.join(folder.uri.fsPath, candidate);
+		if (!path.relative(folder.uri.fsPath, file).startsWith("..")) {
+			try {
+				if (file.toLowerCase().endsWith(".md")) return fs.readFileSync(file, "utf8");
+			} catch {
+				// Fall back to image rendering when the target is unavailable.
+			}
+		}
+	}
+	return null;
 }
 
 interface InlineState {

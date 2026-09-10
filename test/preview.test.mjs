@@ -103,11 +103,23 @@ test("no sep token → shrink unaffected (default gap only)", () => {
   assert.ok(html.includes("flex: 0 0 calc(50% - 2.5px)"));
 });
 
-test("wikilink + embed render", () => {
-  const html = render("[[note|Note]] and ![[img.png]]");
+test("wikilink alias and heading render", () => {
+  const html = render("[[docs/guide#Setup Here|Read guide]]");
+  assert.ok(html.includes('href="docs/guide.md#setup-here"'));
+  assert.ok(html.includes(">Read guide</a>"));
+});
+
+test("wikilink + image embed render", () => {
+  const html = render("[[note|Note]] and ![[img.png|Diagram]]");
   assert.ok(html.includes('href="note.md"'));
   assert.ok(html.includes(">Note</a>"));
   assert.ok(html.includes('src="img.png"'));
+  assert.ok(html.includes('alt="Diagram"'));
+});
+
+test("markdown embeds are bounded when documents contain cyclic embeds", () => {
+  const html = render("![[cycle.md]]");
+  assert.ok(html.length < 100000);
 });
 
 test("unclosed region kept as text", () => {

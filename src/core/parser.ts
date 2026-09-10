@@ -512,10 +512,11 @@ function serializeStartPayload(style: ColumnStyleData | undefined, layout?: Colu
 	return tokens.length > 0 ? `:${tokens.join(",")}` : "";
 }
 
-/**
- * Find all column regions in a document string.
- */
-export function findColumnRegions(doc: string): ColumnRegion[] {
+/** Cache parsed regions for repeated preview refreshes of unchanged content. */
+const regionCache = new Map<string, ColumnRegion[]>();
+const REGION_CACHE_LIMIT = 32;
+
+function parseColumnRegions(doc: string): ColumnRegion[] {
 	const regions: ColumnRegion[] = [];
 	const lines = doc.split("\n");
 	// Offset of the first char of each line (used for absolute column ranges).
@@ -664,6 +665,19 @@ export function findColumnRegions(doc: string): ColumnRegion[] {
 		offset += line.length + 1;
 	}
 
+	return regions;
+}
+
+/** Find all column regions, reusing a bounded cache for unchanged input. */
+export function findColumnRegions(doc: string): ColumnRegion[] {
+	const cached = regionCache.get(doc);
+	if (cached) return cached;
+	const regions = parseColumnRegions(doc);
+	if (regionCache.size >= REGION_CACHE_LIMIT) {
+		const oldest = regionCache.keys().next().value;
+		if (oldest !== undefined) regionCache.delete(oldest);
+	}
+	regionCache.set(doc, regions);
 	return regions;
 }
 
