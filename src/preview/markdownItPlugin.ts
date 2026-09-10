@@ -71,6 +71,7 @@ function shrinkPx(region: ColumnRegion, gap: number): number {
 
 const START_RE = /^%%\s*col-start(?:\s*:.*)?\s*%%$/;
 const END_RE = /^%%\s*col-end\s*%%$/;
+const installedMarkdownIt = new WeakSet<object>();
 
 interface BlockState {
 	src: string;
@@ -99,6 +100,9 @@ interface ColumnsMd {
 }
 
 export function installColumnsMarkdownItPlugin(md: MarkdownIt): void {
+	if (installedMarkdownIt.has(md)) return;
+	installedMarkdownIt.add(md);
+
 	const m = md as unknown as ColumnsMd;
 
 	m.block.ruler.before("paragraph", "amc_columns", (state, startLine, endLine, silent) => {

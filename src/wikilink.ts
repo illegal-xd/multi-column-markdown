@@ -12,6 +12,11 @@ import * as vscode from "vscode";
 /** Simple cache keyed by workspace folder + file tree mtime. */
 let cache: {key: string; files: string[]} | null = null;
 
+/** Invalidate suggestions after workspace files change. */
+export function invalidateWikilinkCache(): void {
+	cache = null;
+}
+
 function cacheKey(): string {
 	const folders = vscode.workspace.workspaceFolders ?? [];
 	return folders.map((f) => f.uri.fsPath).join("|");

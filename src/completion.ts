@@ -3,7 +3,7 @@
  * workspace markdown files (Obsidian-style), inserted as `[[label]]`.
  */
 import * as vscode from "vscode";
-import {getMarkdownFiles, wikilinkLabel} from "./wikilink";
+import {getMarkdownFiles, invalidateWikilinkCache, wikilinkLabel} from "./wikilink";
 
 export function registerWikilinkCompletion(context: vscode.ExtensionContext): void {
 	const provider = vscode.languages.registerCompletionItemProvider(
@@ -32,4 +32,13 @@ export function registerWikilinkCompletion(context: vscode.ExtensionContext): vo
 		"[",
 	);
 	context.subscriptions.push(provider);
+	if (typeof vscode.workspace.createFileSystemWatcher === "function") {
+		const fileWatcher = vscode.workspace.createFileSystemWatcher("**/*.md");
+		context.subscriptions.push(
+			fileWatcher,
+			fileWatcher.onDidCreate(invalidateWikilinkCache),
+			fileWatcher.onDidDelete(invalidateWikilinkCache),
+			fileWatcher.onDidChange(invalidateWikilinkCache),
+		);
+	}
 }

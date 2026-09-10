@@ -22,8 +22,17 @@ assert.equal(typeof api.extendMarkdownIt, "function");
 
 const md = new MarkdownIt({html: true});
 api.extendMarkdownIt(md);
+api.extendMarkdownIt(md);
 
 const render = (doc) => md.render(doc);
+
+test("installing the preview plugin twice does not duplicate rules", () => {
+  const rules = md.inline.ruler.__rules__;
+  assert.equal(rules.filter((rule) => rule.name === "amc_wikilink").length, 1);
+  assert.equal(rules.filter((rule) => rule.name === "amc_wikilink_embed").length, 1);
+  assert.equal(md.block.ruler.__rules__.filter((rule) => rule.name === "amc_columns").length, 1);
+  assert.equal(md.core.ruler.__rules__.filter((rule) => rule.name === "amc-task-lists").length, 1);
+});
 
 test("basic two columns render", () => {
   const html = render("%% col-start %%\n%% col-break %%\nLeft **bold**\n%% col-break %%\nRight\n%% col-end %%");

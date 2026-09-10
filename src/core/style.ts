@@ -226,7 +226,7 @@ export function expandSpacingShorthand(value: string): {top: string; right: stri
 	return {top, right, bottom, left};
 }
 
-function buildColumnCssProps(parsed: ColumnStyleData): Record<string, string> {
+export function buildColumnCssProps(parsed: ColumnStyleData): Record<string, string> {
 	const cssProps: Record<string, string> = {};
 
 	if (parsed.background) {
@@ -369,7 +369,7 @@ function buildColumnCssProps(parsed: ColumnStyleData): Record<string, string> {
 	return cssProps;
 }
 
-function buildContainerCssProps(parsed: ColumnStyleData): Record<string, string> {
+export function buildContainerCssProps(parsed: ColumnStyleData): Record<string, string> {
 	const cssProps: Record<string, string> = {};
 
 	if (parsed.background) {
@@ -397,6 +397,8 @@ function buildContainerCssProps(parsed: ColumnStyleData): Record<string, string>
 			cssProps["--columns-block-border-width"] = parsed.borderWidth ?? (showBorder ? "1px" : "0px");
 		}
 	}
+
+	if (parsed.gap) cssProps["--columns-block-gap"] = parsed.gap;
 
 	return cssProps;
 }
