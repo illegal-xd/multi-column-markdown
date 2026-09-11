@@ -1,0 +1,9 @@
+# pnpm 项目配置（由 pnpm 12 维护）。
+#
+# allowBuilds — pnpm 10+ 默认不执行依赖的 postinstall（供应链防护），需显式批准：
+#   esbuild          构建必需（postinstall 下载平台原生二进制）
+#   @vscode/vsce-sign / keytar  打包与签名 vsix 时使用
+allowBuilds:
+  '@vscode/vsce-sign': true
+  esbuild: true
+  keytar: true

@@ -2,7 +2,7 @@
   "name": "multi-column-markdown",
   "displayName": "Advanced Multi Column",
   "description": "Render interactive, nested multi-column layouts in Markdown preview — marker-based syntax (%% col-start %%), style tokens, stack groups, wikilinks and embeds.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "publisher": "local",
   "license": "AGPL-3.0",
   "icon": "media/icon.png",
@@ -52,6 +52,11 @@
       {
         "command": "multiColumnMarkdown.insertSidebar",
         "title": "Insert sidebar + content layout",
+        "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.insertResponsiveSidebar",
+        "title": "Insert responsive sidebar layout",
         "category": "Advanced Multi Column"
       },
       {
@@ -384,7 +389,7 @@
     "markdown-it": "^14.1.0",
     "typescript": "^5.4.0"
   },
-  "packageManager": "pnpm@11.0.9+sha512.34ce82e6780233cf9cad8685029a8f81d2e06196c5a9bad98879f7424940c6817c4e4524fb7d38b8553ceed48b9758b8ebaf1abd3600c232c4c8cf7366086f38",
+  "packageManager": "pnpm@12.3.4",
   "repository": {
     "type": "git",
     "url": "https://github.com/illegal-xd/multi-column-markdown.git"
