@@ -8,6 +8,7 @@
  * structural operations built on top of this live in `patch.ts`.
  */
 import type {ColumnRegion, ColumnStyleData} from "../types";
+import {isResponsiveToken, RESPONSIVE_TOKEN} from "./regionPayload";
 import {STYLE_TOKEN_DEFS, serializeStyleTokens} from "./styleTokens";
 
 export interface TextEdit {
@@ -31,6 +32,8 @@ export interface ContainerMarkerUpdate {
 	style?: ColumnStyleData;
 	/** `"row"` removes an explicit `l:` token. */
 	layout?: "row" | "stack";
+	/** `true` ensures the bare `responsive` token, `false` removes it; `undefined` leaves it untouched. */
+	responsive?: boolean;
 }
 
 const STYLE_KEYS: ReadonlySet<string> = (() => {
@@ -124,6 +127,7 @@ interface StartRewrite {
 	styleTokens: string[] | null;
 	styleEmitted: boolean;
 	layoutEmitted: boolean;
+	responsiveEmitted: boolean;
 }
 
 /**
@@ -191,10 +195,12 @@ function rewriteStartPayload(payload: string, update: ContainerMarkerUpdate): st
 		styleTokens: update.style === undefined ? null : serializeStyleTokens(update.style),
 		styleEmitted: false,
 		layoutEmitted: false,
+		responsiveEmitted: false,
 	};
 	const kept: string[] = [];
 	for (const piece of pieces) keepStartPiece(kept, piece, state);
 	if (update.layout === "stack" && !state.layoutEmitted) kept.push("l:stack");
+	if (update.responsive === true && !state.responsiveEmitted) kept.push(RESPONSIVE_TOKEN);
 	if (state.styleTokens !== null && !state.styleEmitted && state.styleTokens.length > 0) {
 		kept.push(...state.styleTokens);
 	}
@@ -208,6 +214,15 @@ function keepStartPiece(kept: string[], piece: string, state: StartRewrite): voi
 		else if (!state.layoutEmitted && state.update.layout === "stack") {
 			kept.push("l:stack");
 			state.layoutEmitted = true;
+		}
+		return;
+	}
+	// Bare `responsive` flag (no `:`): kept verbatim unless the update turns it
+	// off, mirroring how the parser reads it case-insensitively.
+	if (key === null && isResponsiveToken(piece.trim())) {
+		if (state.update.responsive !== false) {
+			kept.push(piece);
+			state.responsiveEmitted = true;
 		}
 		return;
 	}

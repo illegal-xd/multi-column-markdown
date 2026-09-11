@@ -10,7 +10,7 @@
  * semantics; it only hands the raw token strings over.
  */
 import type {ColumnStyleData} from "../types";
-import {expandTokenList} from "./styleValue";
+import {expandTokenEntries} from "./styleValue";
 import {STYLE_TOKEN_DEFS, type StyleTokenDef} from "./styleTokenTable";
 
 export {
@@ -36,15 +36,13 @@ const STYLE_TOKEN_BY_KEY: ReadonlyMap<string, StyleTokenDef> = (() => {
 /** Parse a list of raw style tokens into a style object, or undefined. */
 export function parseStyleTokens(tokens: ReadonlyArray<string>): ColumnStyleData | undefined {
 	let style: ColumnStyleData | undefined;
-	for (const token of expandTokenList(tokens)) {
-		const sep = token.indexOf(":");
-		if (sep <= 0) continue;
-		const def = STYLE_TOKEN_BY_KEY.get(token.slice(0, sep).trim().toLowerCase());
+	// `expandTokenEntries` already resolved key/value, so this loop never
+	// re-slices the raw token (this used to happen twice per token).
+	for (const {key, value} of expandTokenEntries(tokens)) {
+		const def = STYLE_TOKEN_BY_KEY.get(key);
 		if (!def) continue;
-		const rawValue = token.slice(sep + 1).trim();
-		if (!rawValue) continue;
 		if (!style) style = {};
-		def.apply(style, rawValue);
+		def.apply(style, value);
 	}
 	return style && Object.keys(style).length > 0 ? style : undefined;
 }

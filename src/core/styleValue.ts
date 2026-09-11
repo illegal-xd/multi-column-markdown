@@ -88,21 +88,22 @@ function splitTopLevelSpace(value: string): string[] {
 function splitTopLevel(value: string, isSeparator: (ch: string) => boolean): string[] {
 	const parts: string[] = [];
 	let depth = 0;
-	let cur = "";
-	for (const ch of value) {
+	let start = 0;
+	for (let i = 0; i < value.length; i++) {
+		const ch = value.charAt(i);
 		if (ch === "(") {
 			depth++;
 		} else if (ch === ")") {
-			depth = Math.max(0, depth - 1);
-		}
-		if (isSeparator(ch) && depth === 0) {
-			parts.push(cur);
-			cur = "";
-		} else {
-			cur += ch;
+			if (depth > 0) depth--;
+		} else if (depth === 0 && isSeparator(ch)) {
+			// Slice whole segments instead of appending character by character:
+			// the old `cur += ch` loop allocated a new string per character,
+			// and this runs for every token of every column on every refresh.
+			parts.push(value.slice(start, i));
+			start = i + 1;
 		}
 	}
-	if (cur.length > 0 || parts.length === 0) parts.push(cur);
+	if (start < value.length || parts.length === 0) parts.push(value.slice(start));
 	return parts;
 }
 
@@ -114,29 +115,54 @@ function splitTopLevel(value: string, isSeparator: (ch: string) => boolean): str
  * - Mixed forms keep the multi-value part: `m:4 8 bw:2` → `m:4 8` + `bw:2`.
  * - Spaces inside parentheses (`rgba(59, 130, 246, 0.12)`) are never split.
  */
-export function expandTokenList(tokens: ReadonlyArray<string>): string[] {
-	const result: string[] = [];
+export interface ExpandedToken {
+	key: string;
+	value: string;
+}
+
+/**
+ * Expand raw tokens into key/value pairs.
+ *
+ * - `b:secondary ml:10` → `b`=`secondary` + `ml`=`10`（同一 token 里夹带的另一个
+ *   key 拆成独立条目）;
+ * - `m:4 8 bw:2` → `m`=`4 8` + `bw`=`2`（多值简写整体保留）;
+ * - spaces inside parentheses (`rgba(59, 130, 246, 0.12)`) are never split.
+ *
+ * Tokens with no usable `key:value` shape are dropped: they carry no style
+ * information, and returning pairs means the caller never re-slices them.
+ */
+export function expandTokenEntries(tokens: ReadonlyArray<string>): ExpandedToken[] {
+	const result: ExpandedToken[] = [];
 	for (const token of tokens) {
 		const sep = token.indexOf(":");
-		if (sep <= 0) {
-			result.push(token);
-			continue;
-		}
+		if (sep <= 0) continue;
 		const key = token.slice(0, sep).trim().toLowerCase();
 		const value = token.slice(sep + 1).trim();
+		if (value.length === 0) continue;
+
 		if (value.includes(" ")) {
 			const segments = splitTopLevelSpace(value);
-			const extra = segments.slice(1).filter((s) => s.includes(":"));
+			const extra: ExpandedToken[] = [];
+			const kept: string[] = [];
+			for (let i = 0; i < segments.length; i++) {
+				const segment = segments[i];
+				const segmentSep = segment.indexOf(":");
+				if (segmentSep <= 0) {
+					kept.push(segment);
+				} else if (i > 0) {
+					extra.push({
+						key: segment.slice(0, segmentSep).trim().toLowerCase(),
+						value: segment.slice(segmentSep + 1).trim(),
+					});
+				}
+			}
 			if (extra.length > 0) {
-				// "b:secondary ml:10" → "b:secondary" + "ml:10"
-				// "m:4 8 bw:2" → "m:4 8" + "bw:2"（多值部分整体保留）
-				const kept = segments.filter((s) => !s.includes(":"));
-				result.push(`${key}:${kept.join(" ")}`);
+				result.push({key, value: kept.join(" ")});
 				result.push(...extra);
 				continue;
 			}
 		}
-		result.push(token);
+		result.push({key, value});
 	}
 	return result;
 }
