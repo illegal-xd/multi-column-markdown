@@ -115,6 +115,12 @@ export interface ColumnRegion {
 	containerStyle?: ColumnStyleData;
 	/** Layout direction: "row" (side-by-side, default) or "stack" (top-to-bottom) */
 	layout?: ColumnLayout;
+	/**
+	 * Responsive layout (`responsive` token): the authored widths stay in
+	 * effect on a wide viewport, a narrow one stacks the columns at full
+	 * width. Layout behaviour only — `widthPercent` is never rewritten.
+	 */
+	responsive?: boolean;
 	/** Line number (0-based) of the `%% col-start %%` line */
 	lineStart: number;
 	/** Line number (0-based) of the `%% col-end %%` line */

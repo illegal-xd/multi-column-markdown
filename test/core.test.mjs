@@ -14,7 +14,8 @@ const dir = mkdtempSync(join(tmpdir(), "amc-core-"));
 try {
   execSync(
     "npx esbuild src/core/parser.ts --bundle --format=esm --outfile=" + join(dir, "parser.mjs") +
-    " && npx esbuild src/core/serializer.ts --bundle --format=esm --outfile=" + join(dir, "serializer.mjs"),
+    " && npx esbuild src/core/serializer.ts --bundle --format=esm --outfile=" + join(dir, "serializer.mjs") +
+    " && npx esbuild src/core/templates.ts --bundle --format=esm --outfile=" + join(dir, "templates.mjs"),
     {cwd: new URL("..", import.meta.url).pathname, stdio: "pipe"},
   );
 } catch (e) {
@@ -22,6 +23,7 @@ try {
   process.exit(1);
 }
 const {findColumnRegions, serializeColumns, docContainsColumns, serializeStyleTokens} = await import(join(dir, "parser.mjs"));
+const templates = await import(join(dir, "templates.mjs"));
 
 test("basic two columns", () => {
   const doc = "%% col-start %%\n%% col-break %%\nLeft\n%% col-break %%\nRight\n%% col-end %%";
@@ -593,4 +595,112 @@ test("style tokens round-trip through parse and serialize", () => {
   assert.deepEqual(serializeStyleTokens(parsed), serializeStyleTokens(style));
 });
 
+test("responsive token marks the region and keeps widths", () => {
+  const doc = "%% col-start:responsive %%\n%% col-break:30 %%\nSidebar\n%% col-break:70 %%\nContent\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].responsive, true);
+  assert.equal(r[0].columns[0].widthPercent, 30);
+  assert.equal(r[0].columns[1].widthPercent, 70);
+  assert.equal(r[0].columns[0].content, "Sidebar");
+});
+
+test("responsive token is case-insensitive", () => {
+  const doc = "%% col-start:Responsive %%\n%% col-break %%\nA\n%% col-end %%";
+  assert.equal(findColumnRegions(doc)[0].responsive, true);
+});
+
+test("responsive coexists with layout and container style", () => {
+  const doc = "%% col-start:l:stack,responsive,bc:muted %%\n%% col-break %%\nA\n%% col-end %%";
+  const r = findColumnRegions(doc)[0];
+  assert.equal(r.responsive, true);
+  assert.equal(r.layout, "stack");
+  assert.equal(r.containerStyle?.borderColor, "muted");
+});
+
+test("responsive survives nested parsing (inner region stays independent)", () => {
+  const doc = "%% col-start:responsive %%\n%% col-break %%\nOuter A\n%% col-break %%\n%% col-start %%\n%% col-break %%\nInner 1\n%% col-break %%\nInner 2\n%% col-end %%\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  assert.equal(r[0].responsive, true);
+  const nested = findColumnRegions(r[0].columns[1].content);
+  assert.equal(nested.length, 1);
+  assert.equal(nested[0].responsive, undefined, "an inner region without the token stays non-responsive");
+});
+
+test("responsive round-trips through serialize", () => {
+  const doc = "%% col-start:responsive,bc:muted %%\n%% col-break:30,sep:1 %%\nA\n%% col-break:70 %%\nB\n%% col-end %%";
+  const r = findColumnRegions(doc);
+  const round = serializeColumns(r[0].columns, r[0].containerStyle, r[0].layout, r[0].responsive);
+  assert.ok(round.includes("%% col-start:responsive,bc:muted %%"), round);
+  const r2 = findColumnRegions(round)[0];
+  assert.equal(r2.responsive, true);
+  assert.equal(r2.columns[0].widthPercent, 30);
+  assert.equal(r2.containerStyle?.borderColor, "muted");
+  // Plain (non-responsive) regions serialize exactly as before.
+  const plain = serializeColumns(r[0].columns, undefined, undefined, undefined);
+  assert.ok(plain.includes("%% col-start %%"), plain);
+});
+
+test("non-responsive region has no responsive field", () => {
+  const r = findColumnRegions("%% col-start %%\n%% col-break %%\nA\n%% col-end %%")[0];
+  assert.equal(r.responsive, undefined);
+});
+
+test("responsive-like but malformed tokens are ignored", () => {
+  for (const payload of ["responsive:1", "responsive:0", "rs:1", "reponsive"]) {
+    const r = findColumnRegions(`%% col-start:${payload} %%\n%% col-break %%\nA\n%% col-end %%`)[0];
+    assert.equal(r.responsive, undefined, `payload "${payload}" must not enable responsive`);
+  }
+});
+
 rmSync(dir, {recursive: true, force: true});
+
+test("responsive sidebar template parses as a responsive 30/70 region", () => {
+  const doc = "Intro paragraph.\n\n" + templates.RESPONSIVE_SIDEBAR_TEMPLATE;
+  const regions = findColumnRegions(doc);
+  assert.equal(regions.length, 1);
+  assert.equal(regions[0].responsive, true);
+  assert.equal(regions[0].columns.length, 2);
+  assert.equal(regions[0].columns[0].widthPercent, 30);
+  assert.equal(regions[0].columns[1].widthPercent, 70);
+  assert.ok(regions[0].columns[0].style?.background === "secondary", "template keeps the secondary background");
+});
+
+test("responsive sidebar template survives standalone-block insertion", () => {
+  const inserted = templates.buildTemplateInsertion("before after", 6, templates.RESPONSIVE_SIDEBAR_TEMPLATE);
+  assert.ok(inserted.includes("%% col-start:responsive %%"));
+  // Standalone block: newlines separate it from the surrounding text.
+  assert.ok(inserted.startsWith("\n%% col-start:responsive %%"));
+  assert.ok(inserted.endsWith("%% col-end %%\n"));
+  const regions = findColumnRegions(inserted);
+  assert.equal(regions.length, 1);
+  assert.equal(regions[0].responsive, true);
+});
+
+test("plain sidebar template stays non-responsive (no accidental inheritance)", () => {
+  const regions = findColumnRegions(templates.SIDEBAR_TEMPLATE);
+  assert.equal(regions.length, 1);
+  assert.equal(regions[0].responsive, undefined);
+});
+
+test("token expansion: multi-value shorthand keeps its segments and splits the trailing key", () => {
+  // Regression guard for the single-pass expansion: `m:4 8 bw:2` must apply
+  // both the multi-value margin and the separate border-width token.
+  const doc = "%% col-start %%\n%% col-break:m:4 8 bw:2 %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.margin, "4px 8px");
+  assert.equal(s.borderWidth, "2px");
+});
+
+test("token expansion drops pieces without a usable key", () => {
+  const doc = "%% col-start %%\n%% col-break:b:secondary,bareword,:novalue,b: %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.background, "secondary", "only the well-formed token applies");
+  assert.equal(Object.keys(s).length, 1);
+});
+
+test("token expansion keeps a value that carries spaces but no second key", () => {
+  const doc = "%% col-start %%\n%% col-break:pd:4 8,b:alt %%\nA\n%% col-end %%";
+  const s = findColumnRegions(doc)[0].columns[0].style ?? {};
+  assert.equal(s.padding, "4px 8px");
+  assert.equal(s.background, "alt");
+});

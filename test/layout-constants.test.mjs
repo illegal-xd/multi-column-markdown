@@ -40,7 +40,9 @@ test("CSS container gap fallback matches DEFAULT_GAP_PX", () => {
 });
 
 test("CSS visual separator width matches the flex-basis math", () => {
-  const rule = /\.column-separator-visual\s*\{([^}]*)\}/.exec(css);
+  // Anchored: other rules may reference the class (e.g. the responsive
+  // media query), but only the base rule starts a block with its name.
+  const rule = /^\.column-separator-visual\s*\{([^}]*)\}/m.exec(css);
   assert.ok(rule, ".column-separator-visual rule not found");
   const width = /width:\s*(\d+)px/.exec(rule[1]);
   assert.ok(width, "separator width not found");
@@ -49,7 +51,7 @@ test("CSS visual separator width matches the flex-basis math", () => {
 });
 
 test("CSS custom separator default matches the --sep-size formula", () => {
-  const rule = /\.column-separator-custom\s*\{([^}]*)\}/.exec(css);
+  const rule = /^\.column-separator-custom\s*\{([^}]*)\}/m.exec(css);
   assert.ok(rule, ".column-separator-custom rule not found");
   const fallback = /var\(--sep-size,\s*(\d+)px\)/.exec(rule[1]);
   assert.ok(fallback, "--sep-size fallback not found");
@@ -92,4 +94,14 @@ test("palette vocabulary is complete and free of duplicates", () => {
     assert.equal(typeof palette.COLOR_CSS[value], "string");
     assert.ok(palette.COLOR_CSS[value].length > 0);
   }
+});
+
+test("package.json commands match the ids registered in commands.ts", () => {
+  const src = readFileSync(join(root, "src/commands.ts"), "utf8");
+  const registered = [...src.matchAll(/registerCommand\(\s*"(multiColumnMarkdown\.[^"]+)"/g)]
+    .map((m) => m[1])
+    .sort();
+  const declared = pkg.contributes.commands.map((c) => c.command).sort();
+  assert.deepEqual(declared, registered, "commands.ts and package.json drifted");
+  assert.ok(declared.includes("multiColumnMarkdown.insertResponsiveSidebar"));
 });

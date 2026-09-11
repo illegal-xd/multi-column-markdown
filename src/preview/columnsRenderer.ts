@@ -69,6 +69,7 @@ function openContainer(region: ColumnRegion, depth: number): string {
 		"columns-ui",
 		"columns-reading",
 		region.layout === "stack" ? "columns-stacked" : "",
+		region.responsive ? "columns-responsive" : "",
 		depth > 0 ? "columns-nested" : "",
 		containerVars ? "columns-custom-style" : "",
 	].filter(Boolean).join(" ");

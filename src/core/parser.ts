@@ -68,6 +68,7 @@ interface ScanState {
 	nestedDepth: number;
 	containerStyle: ColumnStyleData | undefined;
 	layout: ColumnLayout | undefined;
+	responsive: boolean | undefined;
 }
 
 /** Read-only inputs shared by every line of a scan. */
@@ -95,6 +96,7 @@ function createScanState(): ScanState {
 		nestedDepth: 0,
 		containerStyle: undefined,
 		layout: undefined,
+		responsive: undefined,
 	};
 }
 
@@ -112,6 +114,7 @@ function openRegion(state: ScanState, line: LineInfo): void {
 	state.nestedDepth = 0;
 	state.containerStyle = parsed.containerStyle;
 	state.layout = parsed.layout;
+	state.responsive = parsed.responsive;
 }
 
 function closeRegion(state: ScanState): void {
@@ -122,6 +125,7 @@ function closeRegion(state: ScanState): void {
 	state.nestedDepth = 0;
 	state.containerStyle = undefined;
 	state.layout = undefined;
+	state.responsive = undefined;
 }
 
 function pushCurrentColumn(state: ScanState): void {
@@ -225,7 +229,7 @@ function buildRegion(state: ScanState, context: ScanContext, end: LineInfo): Col
 	const endMarker = end.span;
 	const lineEnd = end.index;
 
-	return {
+	const region: ColumnRegion = {
 		from: state.regionStartOffset,
 		to: endMarker[1],
 		columns: columns.map((column) => ({
@@ -247,6 +251,11 @@ function buildRegion(state: ScanState, context: ScanContext, end: LineInfo): Col
 		endMarkerOffset: endMarker,
 		columnMarkerOffsets: columns.map((column) => column.markerOffset),
 	};
+	// Set the flag conditionally instead of spreading a temporary object: the
+	// key stays absent (never `false`), so a non-responsive region keeps a
+	// byte-identical shape through JSON round-trips.
+	if (state.responsive) region.responsive = true;
+	return region;
 }
 
 /**

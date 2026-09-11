@@ -21,9 +21,14 @@ export function serializeBreakPayload(column: ColumnData): string {
 	return tokens.length > 0 ? `:${tokens.join(",")}` : "";
 }
 
-export function serializeStartPayload(style: ColumnStyleData | undefined, layout?: ColumnLayout): string {
+export function serializeStartPayload(
+	style: ColumnStyleData | undefined,
+	layout?: ColumnLayout,
+	responsive?: boolean,
+): string {
 	const tokens: string[] = [];
 	if (layout && layout !== "row") tokens.push(`l:${layout}`);
+	if (responsive) tokens.push("responsive");
 	tokens.push(...serializeStyleTokens(style));
 	return tokens.length > 0 ? `:${tokens.join(",")}` : "";
 }
@@ -39,8 +44,9 @@ export function serializeColumns(
 	columns: ReadonlyArray<ColumnData>,
 	containerStyle?: ColumnStyleData,
 	layout?: ColumnLayout,
+	responsive?: boolean,
 ): string {
-	const parts: string[] = [`%% col-start${serializeStartPayload(containerStyle, layout)} %%`];
+	const parts: string[] = [`%% col-start${serializeStartPayload(containerStyle, layout, responsive)} %%`];
 	for (const col of columns) {
 		parts.push(`%% col-break${serializeBreakPayload(col)} %%`);
 		if (col.content.trim().length > 0) {

@@ -20,11 +20,13 @@ written for the Obsidian plugin render identically in the built-in preview.
   the built-in Markdown preview (`Cmd+Shift+V`).
 - **Nested columns** — unlimited depth; build columns inside columns.
 - **Width control** — `%% col-break:30 %%` sets percentage width (also `w:40`); sums over 100% fall back to equal widths.
+- **Responsive columns** — add the `responsive` token to `%% col-start %%`: columns keep their widths side-by-side on a
+  wide preview, and stack full-width below 640px. Pure CSS — layout behaviour only, never rewrites the widths you wrote.
 - **Stack groups** — `stk:N` stacks adjacent columns vertically; container-level `l:stack` lays out the whole block top-to-bottom.
 - **Style tokens (22)** — background `b:`, border color `bc:` (incl. `transparent`), border width `bw:`/`bwl:`/`bwt:`/`bwr:`/`bwb:`, border radius `br:`/`brl:`/`brt:`/`brr:`/`brb:`, text color `t:`/`tc:`, border toggle `sb:`, horizontal
   dividers `h:`/`hd:`, left border `lb:`, separators `sep:`/`sc:`/`ss:`/`sw:`/`sx:`, text alignment `ta:`, margin shorthand `m:`.
 - **Wikilinks & embeds** — `[[note]]` renders as a clickable link; `[[note|alias]]` shows an alias and `[[note#Heading]]` / `[[note^block]]` add Obsidian-style URL fragments; `![[image.png]]` embeds an image and `![[note]]` / `![[note.md]]` embeds the rendered Markdown content (depth-limited, cycle-safe, falls back to `<img>` when the file is missing).
-- **Templates (10 commands)** — 2/3/4-wide, custom count, nested, sidebar, stacked, Cornell notes, Kanban board, info card.
+- **Templates (11 commands)** — 2/3/4-wide, custom count, nested, sidebar, responsive sidebar, stacked, Cornell notes, Kanban board, info card.
 - **Theming** — all colors map to VSCode theme tokens (light/dark safe).
 
 ---
@@ -89,6 +91,34 @@ Right column
 | `g:` | Container gap between columns (default `5px`, col-start) | CSS spacing: `8`, `0.5em`, `10%` (numbers → px) |
 | `stk:` | Stack group id (col-break) | positive integer |
 | `l:` | Container layout (col-start) | `row` (default) `stack` |
+| `responsive` | Responsive layout (col-start, bare token) | present ⇒ stacks below the 640px breakpoint |
+
+> Stacked spacing: every vertically-stacked state (`l:stack`, `stk:N` groups, and the responsive collapse below 640px)
+> shares the `--columns-stacked-gap` variable (default `8px`, slightly relaxed from the 5px row gap). An explicit `g:`
+> token still controls that spacing, because the CSS fallback chain reads `--columns-block-gap` first.
+
+### Responsive example
+
+```markdown
+%% col-start:responsive %%
+%% col-break:30 %%
+Sidebar
+%% col-break:70 %%
+Content
+%% col-end %%
+```
+
+- **Wide preview** — the container keeps the authored widths (`30% | 70%`).
+- **Narrow preview** — every column becomes `100%` wide and stacks vertically.
+- Responsive is **layout behaviour only**: your `widthPercent` values are never rewritten; `l:stack` blocks are already
+  vertical and are unaffected.
+- Scoped to the `.columns-responsive` class with direct-child selectors — a nested container that does **not** carry the
+  token keeps its own authored layout even inside a responsive parent.
+- Breakpoint is a fixed CSS `@media (max-width: 640px)` evaluated against the preview webview width (no JS resize
+  listeners, parser is viewport-agnostic). A container nested inside a narrow column does **not** collapse on its own —
+  only the viewport breakpoint triggers the change.
+- A bare `responsive` token only. `responsive:1` / `rs:` / typos are ignored — a malformed token must never silently
+  change a document's layout.
 
 ### Nested example
 
@@ -153,6 +183,7 @@ Main content with **bold**, `inline code`, etc.
 | Insert layout (custom count) | Uses `defaultColumnCount` |
 | Insert nested layout | Parent with child columns |
 | Insert sidebar + content | 30/70 layout |
+| Insert responsive sidebar | 30/70 layout, stacks full-width below 640px |
 | Insert stacked + wide | Stacked rows + wide column |
 | Insert Cornell notes | Cornell template |
 | Insert Kanban board | Kanban template |
@@ -187,12 +218,16 @@ Main content with **bold**, `inline code`, etc.
 ## Development
 
 ```bash
-npm install
-npm run build      # type-check + esbuild bundle
-npm test          # unit tests (parser, preview rendering, wikilinks)
-npm run benchmark # parser-cache performance baseline
-npm run package    # build + vsce package
+pnpm install
+pnpm build      # type-check + esbuild bundle
+pnpm test       # unit tests (parser, preview rendering, wikilinks)
+pnpm benchmark  # parser-cache performance baseline
+pnpm package    # build + vsce package
 ```
+
+> Package manager is pnpm (pinned via `packageManager` in `package.json`; the lockfile is `pnpm-lock.yaml`).
+> `pnpm-workspace.yaml` holds the `allowBuilds` list — pnpm 10+ blocks dependency postinstall scripts by default,
+> and `esbuild` needs its postinstall to fetch the platform binary.
 
 Architecture: `src/core/` (pure logic: `parser.ts` / `serializer.ts` / `style.ts` / `templates.ts` / `wikilink.ts`)
 + `src/preview/` (markdown-it plugin registered via the official `markdown.markdownItPlugins` contribution +

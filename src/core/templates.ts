@@ -30,6 +30,16 @@ export const SIDEBAR_TEMPLATE = [
 	"%% col-end %%",
 ].join("\n");
 
+/** Sidebar + content that stacks full-width on narrow previews (<640px). */
+export const RESPONSIVE_SIDEBAR_TEMPLATE = [
+	"%% col-start:responsive %%",
+	"%% col-break:30,b:secondary %%",
+	"Sidebar",
+	"%% col-break:70,b:secondary %%",
+	"Main content",
+	"%% col-end %%",
+].join("\n");
+
 export const STACKED_TEMPLATE = [
 	"%% col-start %%",
 	"%% col-break:40,stk:1,b:secondary %%",

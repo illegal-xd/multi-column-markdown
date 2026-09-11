@@ -21,6 +21,7 @@
 
 .columns-container.columns-stacked {
 	flex-direction: column;
+	gap: var(--columns-stacked-gap, var(--columns-block-gap, 8px));
 }
 
 .columns-container.columns-nested {
@@ -132,6 +133,45 @@
 	flex-direction: column;
 	flex: 1 1 0%;
 	min-width: 0;
+	gap: var(--columns-stacked-gap, var(--columns-block-gap, 8px));
+}
+
+/* ── Responsive columns ──
+   The `responsive` token on `%% col-start %%` keeps the authored widths side
+   by side on a wide viewport and stacks every column at full width below the
+   breakpoint. Layout behaviour only — the source `widthPercent` values are
+   never rewritten. Each responsive container carries its own class and the
+   child selectors use a direct-child combinator, so nested containers do not
+   inherit the behaviour unless they carry the token themselves.
+
+   The authored width is an inline `flex` declaration on each column, so the
+   narrow override needs `!important` — at this breakpoint the layout wins
+   over the authored width, by design.
+
+   Stacked spacing: every state that stacks vertically — `l:stack`,
+   `stk:N` groups and the responsive collapse — shares `--columns-stacked-gap`
+   (default 8px, relaxed from the 5px row gap). An explicit `g:` token still
+   wins because the fallback chain reads `--columns-block-gap` first. */
+@media (max-width: 640px) {
+	.columns-container.columns-responsive:not(.columns-stacked) {
+		flex-wrap: wrap;
+		gap: var(--columns-stacked-gap, var(--columns-block-gap, 8px));
+	}
+	.columns-container.columns-responsive:not(.columns-stacked) > .column-item,
+	.columns-container.columns-responsive:not(.columns-stacked) > .columns-stack-group {
+		flex: 1 1 100% !important;
+	}
+	/* Separators between stacked rows read as horizontal rules, mirroring
+	   the `.columns-stacked` / `.columns-stack-group` variants below. */
+	.columns-container.columns-responsive:not(.columns-stacked) > .column-separator-visual {
+		width: 100%;
+		height: 8px;
+		background-size: 100% var(--sep-width, 1px);
+	}
+	.columns-container.columns-responsive:not(.columns-stacked) > .column-separator-custom {
+		width: 100%;
+		height: var(--sep-size, 12px);
+	}
 }
 
 /* ── Separators ── */

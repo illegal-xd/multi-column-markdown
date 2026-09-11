@@ -41,6 +41,16 @@ test("parser benchmark: cold parses stay within budget", () => {
   assert.ok(cold < 5, `cold parse exceeded 5ms: ${cold.toFixed(3)}ms`);
 });
 
+test("parser benchmark: responsive markers stay within the same budget", () => {
+  clearRegionCache();
+  // The responsive token is one extra string compare per col-start payload;
+  // it must not push the cold path over the plain-document budget.
+  const responsive = document.replaceAll("%% col-start %%", "%% col-start:responsive %%");
+  const t = perOp(100, (i) => findColumnRegions(`${responsive}\n<!-- ${i} -->`).length);
+  console.log(`parser-cold-responsive: ${t.toFixed(3)}ms per parse (100 regions)`);
+  assert.ok(t < 5, `responsive cold parse exceeded 5ms: ${t.toFixed(3)}ms`);
+});
+
 test("parser benchmark: cache hits are much cheaper than a cold parse", () => {
   clearRegionCache();
   findColumnRegions(document); // prime

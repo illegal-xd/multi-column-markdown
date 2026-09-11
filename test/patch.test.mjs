@@ -172,3 +172,46 @@ test("findNodeAtPath resolves nested containers", () => {
   assert.equal(findNodeAtPath(root, [{columnIndex: 3, regionIndex: 0}]), null);
   assert.equal(findNodeAtPath(root, [{columnIndex: 0, regionIndex: 9}]), null);
 });
+
+test("container patch keeps the responsive token while rewriting style", () => {
+  const doc = "%% col-start:responsive,b:secondary %%\n%% col-break %%\nA\n%% col-end %%";
+  const e = P.patchContainerMarker(doc, findColumnRegions(doc)[0], {style: {background: "primary"}});
+  assert.equal(e.text, "%% col-start:responsive,b:primary %%");
+  const patched = P.applyEdits(doc, [e]);
+  assert.equal(findColumnRegions(patched)[0].responsive, true, "responsive survives the patch");
+  assert.equal(findColumnRegions(patched)[0].containerStyle?.background, "primary");
+});
+
+test("container patch without a style update keeps the payload verbatim", () => {
+  const doc = "%% col-start:responsive,zz:9 %%\n%% col-break %%\nA\n%% col-end %%";
+  const e = P.patchContainerMarker(doc, findColumnRegions(doc)[0], {layout: "stack"});
+  assert.equal(e.text, "%% col-start:responsive,zz:9,l:stack %%");
+});
+
+test("container patch can turn responsiveness on and off", () => {
+  const plain = "%% col-start %%\n%% col-break %%\nA\n%% col-end %%";
+  const on = P.patchContainerMarker(plain, findColumnRegions(plain)[0], {responsive: true});
+  assert.equal(on.text, "%% col-start:responsive %%");
+  assert.equal(findColumnRegions(P.applyEdits(plain, [on]))[0].responsive, true, "off -> on works");
+
+  const resp = "%% col-start:responsive %%\n%% col-break %%\nA\n%% col-end %%";
+  const off = P.patchContainerMarker(resp, findColumnRegions(resp)[0], {responsive: false});
+  assert.equal(off.text, "%% col-start %%", "on -> off drops the token");
+  assert.equal(findColumnRegions(P.applyEdits(resp, [off]))[0].responsive, undefined);
+});
+
+test("container patch leaves the responsive flag alone when not mentioned", () => {
+  const doc = "%% col-start:responsive %%\n%% col-break %%\nA\n%% col-end %%";
+  const e = P.patchContainerMarker(doc, findColumnRegions(doc)[0], {layout: "stack"});
+  assert.equal(e.text, "%% col-start:responsive,l:stack %%");
+});
+
+test("container patch keeps the authored casing of an existing flag", () => {
+  const doc = "%% col-start:Responsive,b:alt %%\n%% col-break %%\nA\n%% col-end %%";
+  const e = P.patchContainerMarker(doc, findColumnRegions(doc)[0], {style: {background: "primary"}});
+  assert.equal(e.text, "%% col-start:Responsive,b:primary %%", "casing survives a style rewrite");
+
+  const upper = "%% col-start:RESPONSIVE %%\n%% col-break %%\nA\n%% col-end %%";
+  const again = P.patchContainerMarker(upper, findColumnRegions(upper)[0], {responsive: true});
+  assert.equal(again.text, "%% col-start:RESPONSIVE %%", "an existing flag is never duplicated");
+});

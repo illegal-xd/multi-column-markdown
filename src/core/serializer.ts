@@ -26,14 +26,16 @@ import type {ColumnData, ColumnLayout, ColumnRegion, ColumnStyleData} from "../t
 import type {ContainerPath} from "../types";
 
 /**
- * Serialize a full region update (columns + optional style/layout) back into
- * the marker document — equivalent to the reference `dispatchUpdate`.
+ * Serialize a full region update (columns + optional style/layout/responsive)
+ * back into the marker document — equivalent to the reference
+ * `dispatchUpdate`.
  */
 export function serializeRegionUpdate(
 	region: Pick<ColumnRegion, "from" | "to">,
 	columns: ColumnData[],
 	containerStyle?: ColumnStyleData,
 	layout?: ColumnLayout,
+	responsive?: boolean,
 ): {from: number; to: number; text: string} {
 	return {
 		from: region.from,
@@ -42,6 +44,7 @@ export function serializeRegionUpdate(
 			columns,
 			containerStyle !== undefined ? containerStyle : undefined,
 			layout,
+			responsive,
 		),
 	};
 }
@@ -156,7 +159,7 @@ export function addChildColumnToContent(content: string): string {
 		];
 		return (
 			content.slice(0, region.from) +
-			serializeColumns(nextChildren, region.containerStyle, region.layout) +
+			serializeColumns(nextChildren, region.containerStyle, region.layout, region.responsive) +
 			content.slice(region.to)
 		);
 	}
@@ -203,7 +206,7 @@ export function removeColumnAtPath(
 			? parentColumn.content.slice(0, region.from) +
 			  parentColumn.content.slice(region.to)
 			: parentColumn.content.slice(0, region.from) +
-			  serializeColumns(nestedResult.nextColumns, region.containerStyle, region.layout) +
+			  serializeColumns(nestedResult.nextColumns, region.containerStyle, region.layout, region.responsive) +
 			  parentColumn.content.slice(region.to);
 
 	const nextColumns = columns.map((column, index) =>
@@ -267,7 +270,7 @@ export function updateColumnsAtPath(
 		const nextRegionColumns = updateColumnsAtPath(region.columns, rest, updater);
 		const nextContent =
 			col.content.slice(0, region.from) +
-			serializeColumns(nextRegionColumns, region.containerStyle, region.layout) +
+			serializeColumns(nextRegionColumns, region.containerStyle, region.layout, region.responsive) +
 			col.content.slice(region.to);
 		return {...col, content: nextContent};
 	});
@@ -292,7 +295,7 @@ export function moveColumnBetweenContainers(
 	sourceIndex: number,
 	destinationPath: ContainerPath,
 	destinationIndex: number,
-): {columns: ColumnData[]; containerStyle?: ColumnStyleData; layout?: ColumnLayout} | null {
+): {columns: ColumnData[]; containerStyle?: ColumnStyleData; layout?: ColumnLayout; responsive?: boolean} | null {
 	if (isDestinationInsideMovedColumn(sourcePath, sourceIndex, destinationPath)) return null;
 
 	const rootColumns = region.columns;
@@ -318,7 +321,7 @@ export function moveColumnBetweenContainers(
 		const shouldStack = resolveStackedForInsert(reordered, adjustedIndex);
 		reordered.splice(adjustedIndex, 0, {...removed, stacked: shouldStack > 0 ? shouldStack : undefined});
 		const nextRoot = updateColumnsAtPath(rootColumns, sourcePath, () => reordered);
-		return {columns: nextRoot, containerStyle: region.containerStyle, layout: region.layout};
+		return {columns: nextRoot, containerStyle: region.containerStyle, layout: region.layout, responsive: region.responsive};
 	}
 
 	const removed = removeColumnAtPath(rootColumns, sourcePath, sourceIndex);
@@ -333,7 +336,7 @@ export function moveColumnBetweenContainers(
 		return normalizeColumnWidths(inserted);
 	});
 
-	return {columns: nextRoot, containerStyle: region.containerStyle, layout: region.layout};
+	return {columns: nextRoot, containerStyle: region.containerStyle, layout: region.layout, responsive: region.responsive};
 }
 
 export function buildStandaloneBlockInsertion(doc: string, cursorPos: number, block: string): string {

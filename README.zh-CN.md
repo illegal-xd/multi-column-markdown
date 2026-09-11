@@ -19,10 +19,11 @@
 - **预览渲染** — `%% col-start %%` / `%% col-break %%` / `%% col-end %%` 标记块在 VSCode 内置预览中渲染为多栏布局（`Cmd+Shift+V` 打开预览）
 - **嵌套列** — 无限深度嵌套，列内再建列
 - **宽度控制** — `%% col-break:30 %%` 指定百分比宽度（也支持 `w:40` 写法）；总和超 100% 自动回退等宽
+- **响应式列** — 在 `%% col-start %%` 上附加 `responsive` token：预览宽度充足时保持列宽并排展示，宽度不足 640px 时自动纵向堆叠。纯 CSS 实现，只是布局行为，绝不改写你写的宽度值
 - **堆叠组** — `stk:N` 将相邻列纵向堆叠；容器级 `l:stack` 整体纵向布局
 - **样式 token（22 种）** — 背景 `b:`、边框色 `bc:`（含 `transparent`）、边框宽度 `bw:`/`bwl:`/`bwt:`/`bwr:`/`bwb:`、圆角 `br:`/`brl:`/`brt:`/`brr:`/`brb:`、文字色 `t:`/`tc:`、边框开关 `sb:`、水平分隔线 `h:`/`hd:`、左边界 `lb:`、分隔符 `sep:`/`sc:`/`ss:`/`sw:`/`sx:`、文字对齐 `ta:`、外边距简写 `m:`
 - **Wikilink 与嵌入** — `[[笔记]]` 渲染为可点击链接；`[[笔记|别名]]` 显示别名，`[[笔记#标题]]` / `[[笔记^块ID]]` 支持 Obsidian 风格 URL 锚点；`![[图片.png]]` 内嵌图片，`![[笔记]]` / `![[笔记.md]]` 直接内嵌渲染整篇 Markdown（有深度上限与循环保护，文件缺失时回退为 `<img>`）
-- **模板命令（10 个）** — 两列/三列/四列/自定义列数/嵌套/侧边栏/堆叠/Cornell 笔记/看板/信息卡片
+- **模板命令（11 个）** — 两列/三列/四列/自定义列数/嵌套/侧边栏/响应式侧边栏/堆叠/Cornell 笔记/看板/信息卡片
 - **主题适配** — 全部颜色映射 VSCode 主题变量（明暗主题自适应）
 
 ---
@@ -85,6 +86,29 @@
 | `g:` | 分栏间距（默认 `5px`，col-start 容器级） | CSS 间距：`8`、`0.5em`、`10%`（数字自动加 px） |
 | `stk:` | 堆叠组 ID（col-break） | 正整数 |
 | `l:` | 容器布局（col-start） | `row`（默认）`stack` |
+| `responsive` | 响应式布局（col-start，裸 token） | 出现即表示窄于 640px 断点自动堆叠 |
+
+> 堆叠态间距：所有纵向堆叠形态（`l:stack`、`stk:N` 堆叠组、以及窄于 640px 的响应式折叠）共用
+> `--columns-stacked-gap` 变量（默认 `8px`，比横向 5px 行间距略宽松）。显式 `g:` token 依然生效，
+> 因为 CSS 回退链会优先读取 `--columns-block-gap`。
+
+### 响应式示例
+
+```markdown
+%% col-start:responsive %%
+%% col-break:30 %%
+侧边栏
+%% col-break:70 %%
+正文内容
+%% col-end %%
+```
+
+- **预览宽度充足** — 保持你写的宽度（`30% | 70%`）横向并排
+- **预览宽度不足** — 每列变为 `100%` 宽度，纵向堆叠
+- 响应式**只是布局行为**：你的 `widthPercent` 永远不会被改写；`l:stack` 块本来就是纵向布局，不受影响
+- 作用域限定在 `.columns-responsive` class + 直接子代选择器——即使父容器是响应式的，**未**携带 token 的嵌套容器仍保持自己的布局
+- 断点是固定的 CSS `@media (max-width: 640px)`，按预览 webview 宽度计算（无 JS resize 监听，parser 不感知视口）。嵌套在窄列里的容器不会自行折叠——只有视口断点触发变化
+- 只认**裸 `responsive` token**。`responsive:1` / `rs:` / 拼写错误一律忽略——畸形 token 绝不能悄悄改变文档布局
 
 ### 嵌套示例
 
@@ -148,6 +172,7 @@
 | Insert layout (custom count) | 自定义列数（使用设置 `defaultColumnCount`） |
 | Insert nested layout | 嵌套布局 |
 | Insert sidebar + content | 侧边栏 30/70 |
+| Insert responsive sidebar | 侧边栏 30/70，窄于 640px 时纵向堆叠 |
 | Insert stacked + wide | 堆叠 + 宽列 |
 | Insert Cornell notes | Cornell 笔记模板 |
 | Insert Kanban board | 看板模板 |
@@ -177,12 +202,16 @@
 ## 开发
 
 ```bash
-npm install
-npm run build      # 类型检查 + esbuild 打包
-npm test          # 单元测试（解析器、预览渲染、Wikilink）
-npm run benchmark # 解析缓存性能基线
-npm run package    # 打包为 vsix
+pnpm install
+pnpm build      # 类型检查 + esbuild 打包
+pnpm test       # 单元测试（解析器、预览渲染、Wikilink）
+pnpm benchmark  # 解析缓存性能基线
+pnpm package    # 打包为 vsix
 ```
+
+> 包管理器为 pnpm（版本由 `package.json` 的 `packageManager` 固定，锁文件为 `pnpm-lock.yaml`）。
+> `pnpm-workspace.yaml` 保存 `allowBuilds` 白名单——pnpm 10+ 默认阻止依赖的 postinstall 脚本，
+> 而 `esbuild` 需要该脚本下载平台原生二进制。
 
 架构：`src/core/`（纯逻辑：`parser.ts` / `serializer.ts` / `style.ts` / `templates.ts` / `wikilink.ts`）+ `src/preview/`
 （markdown-it 插件，通过官方 `markdown.markdownItPlugins` + `extendMarkdownIt` API 注册到内置预览）+

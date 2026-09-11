@@ -278,6 +278,9 @@ B
 %% col-end %%
 
 > `stk:N` 将相邻列归入同一堆叠组（组内纵向排列，组宽取组内最大宽度）。
+>
+> **堆叠态间距**：`stk:N` 组内、`l:stack` 整体堆叠、响应式折叠这三种纵向形态共用一个间距变量
+> `--columns-stacked-gap`（默认 `8px`，比横向列间距 5px 略宽松）；显式写 `g:N` 时以 `g:` 为准。
 
 ---
 
@@ -291,6 +294,46 @@ B
 %% col-break %%
 
 下区块
+
+%% col-end %%
+
+---
+
+## 响应式列（responsive）
+
+在 `%% col-start %%` 上添加裸 token `responsive`：预览宽度充足时保持列宽并排，宽度窄于 **640px** 时自动折叠为纵向堆叠。把预览面板拖窄到 640px 以下即可看到变化（拖宽恢复并排）。
+
+%% col-start:responsive %%
+%% col-break:30 %%
+
+侧边栏（30%）
+
+%% col-break:70 %%
+
+正文内容（70%）——宽预览保持并排，窄预览两列各自占满整行。
+
+%% col-end %%
+
+> - **只改布局，不改文档**：`30` / `70` 宽度 token 原样保留在源文件中，不会被重写。
+> - **大小写不敏感**：`responsive` / `Responsive` 均可；`responsive:1`、`rs:` 等写法一律忽略（畸形 token 不会悄悄改变布局）。
+> - **作用域独立**：只有带 `responsive` 的容器会折叠，嵌套其中的普通容器保持自己的布局。
+> - **固定断点 640px**，按预览面板宽度计算，不使用 JS 监听 resize。
+> - 命令面板执行 **Advanced Multi Column: Insert responsive sidebar layout** 可直接插入响应式侧边栏模板。
+
+### 响应式 + 堆叠组 + 样式
+
+%% col-start:responsive %%
+%% col-break:40,stk:1,b:secondary %%
+
+堆叠 A
+
+%% col-break:stk:1,b:secondary %%
+
+堆叠 B
+
+%% col-break:60,b:alt %%
+
+宽列（60%）
 
 %% col-end %%
 

@@ -468,3 +468,90 @@ test("an empty column region renders no fallback wrapper", () => {
   assert.ok(html.includes("columns-container"));
   assert.ok(!html.includes("amc-parse-fallback"));
 });
+
+test("responsive containers carry the columns-responsive class", () => {
+  const html = render("%% col-start:responsive %%\n%% col-break:30 %%\nSidebar\n%% col-break:70 %%\nContent\n%% col-end %%");
+  assert.ok(html.includes("columns-responsive"), "responsive class missing");
+  assert.ok(html.includes("columns-container"), "base container class missing");
+  // The authored width is still emitted inline — responsive is layout-only.
+  assert.ok(html.includes("flex: 0 0 calc(30% - 2.5px)"), "width inline style must be preserved");
+  assert.ok(html.includes("flex: 0 0 calc(70% - 2.5px)"));
+  assert.equal((html.match(/columns-responsive/g) ?? []).length, 1);
+});
+
+test("plain containers never carry the responsive class", () => {
+  const html = render("%% col-start %%\n%% col-break %%\nA\n%% col-break %%\nB\n%% col-end %%");
+  assert.ok(!html.includes("columns-responsive"));
+  assert.equal((html.match(/columns-container/g) ?? []).length, 1);
+});
+
+test("nested containers do not inherit responsiveness from the parent", () => {
+  const doc = [
+    "%% col-start:responsive %%",
+    "%% col-break %%",
+    "Outer A",
+    "%% col-break %%",
+    "%% col-start %%",
+    "%% col-break %%",
+    "Inner 1",
+    "%% col-break %%",
+    "Inner 2",
+    "%% col-end %%",
+    "%% col-end %%",
+  ].join("\n");
+  const html = render(doc);
+  assert.equal((html.match(/columns-responsive/g) ?? []).length, 1, "only the outer container is responsive");
+  assert.equal((html.match(/columns-nested/g) ?? []).length, 1, "the inner container renders nested");
+  assert.ok(html.includes("Inner 1") && html.includes("Inner 2"));
+});
+
+test("responsive + stack group renders both structures", () => {
+  const doc = "%% col-start:responsive %%\n%% col-break:40,stk:1 %%\nS1\n%% col-break:stk:1 %%\nS2\n%% col-break:60 %%\nWide\n%% col-end %%";
+  const html = render(doc);
+  assert.ok(html.includes("columns-responsive"));
+  assert.ok(html.includes("columns-stack-group"), "stack group wrapper must survive");
+  assert.equal((html.match(/class="column-item"/g) ?? []).length, 3);
+});
+
+test("responsive + explicit stack layout keeps the stacked class", () => {
+  const html = render("%% col-start:l:stack,responsive %%\n%% col-break %%\nA\n%% col-break %%\nB\n%% col-end %%");
+  assert.ok(html.includes("columns-stacked"), "l:stack layout must be preserved");
+  assert.ok(html.includes("columns-responsive"));
+});
+
+test("responsive + wikilink and image content render normally", () => {
+  const html = render("%% col-start:responsive %%\n%% col-break %%\nSee [[page]] and ![[img.png]]\n%% col-end %%");
+  assert.ok(html.includes("columns-responsive"));
+  assert.ok(html.includes('href="page.md"'), "wikilink must render inside a responsive column");
+  assert.ok(html.includes("<img"), "image embed must render inside a responsive column");
+});
+
+test("previewStyle.css ships the responsive collapse rules", () => {
+  const css = readFileSync(new URL("../media/previewStyle.css", import.meta.url), "utf8");
+  assert.ok(css.includes(".columns-container.columns-responsive"), "responsive container rule missing");
+  assert.ok(css.includes("@media (max-width: 640px)"), "narrow breakpoint missing");
+  const media = css.slice(css.indexOf("@media (max-width: 640px)"));
+  assert.ok(media.includes(".columns-container.columns-responsive"), "container override inside the media query");
+  assert.ok(media.includes(".columns-responsive"), "child overrides inside the media query");
+});
+
+test("stacked states share --columns-stacked-gap (l:stack / stk:N / responsive)", () => {
+  const css = readFileSync(new URL("../media/previewStyle.css", import.meta.url), "utf8");
+  const chain = "var(--columns-stacked-gap, var(--columns-block-gap, 8px))";
+
+  const stacked = /^\.columns-container\.columns-stacked\s*\{([^}]*)\}/m.exec(css);
+  assert.ok(stacked, "columns-stacked rule missing");
+  assert.ok(stacked[1].includes(chain), "l:stack must use the stacked gap");
+
+  const group = /^\.columns-container \.columns-stack-group\s*\{([^}]*)\}/m.exec(css);
+  assert.ok(group, "stack-group rule missing");
+  assert.ok(group[1].includes(chain), "stk:N group must use the stacked gap");
+
+  const media = css.slice(css.indexOf("@media (max-width: 640px)"));
+  assert.ok(media.includes(chain), "responsive collapse must use the stacked gap");
+
+  const uses = css.match(/var\(--columns-stacked-gap, var\(--columns-block-gap, 8px\)\)/g) ?? [];
+  assert.equal(uses.length, 3, "exactly the three stacked states share the chain");
+  // An explicit g: token stays meaningful (block gap is read inside the chain).
+  assert.ok(/gap:\s*var\(--columns-block-gap,\s*5px\)/.test(css), "row gap unchanged");
+});

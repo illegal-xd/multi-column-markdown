@@ -12,6 +12,7 @@ import {
 	INFO_CARD_TEMPLATE,
 	KANBAN_TEMPLATE,
 	NESTED_TEMPLATE,
+	RESPONSIVE_SIDEBAR_TEMPLATE,
 	SIDEBAR_TEMPLATE,
 	STACKED_TEMPLATE,
 } from "./core/templates";
@@ -28,6 +29,7 @@ export function registerCommands(context: vscode.ExtensionContext): void {
 		vscode.commands.registerCommand("multiColumnMarkdown.insertLayout", insert(() => buildColumnsTemplate(getSettings().defaultColumnCount))),
 		vscode.commands.registerCommand("multiColumnMarkdown.insertNested", insert(() => NESTED_TEMPLATE)),
 		vscode.commands.registerCommand("multiColumnMarkdown.insertSidebar", insert(() => SIDEBAR_TEMPLATE)),
+		vscode.commands.registerCommand("multiColumnMarkdown.insertResponsiveSidebar", insert(() => RESPONSIVE_SIDEBAR_TEMPLATE)),
 		vscode.commands.registerCommand("multiColumnMarkdown.insertStacked", insert(() => STACKED_TEMPLATE)),
 		vscode.commands.registerCommand("multiColumnMarkdown.insertCornell", insert(() => CORNELL_TEMPLATE)),
 		vscode.commands.registerCommand("multiColumnMarkdown.insertKanban", insert(() => KANBAN_TEMPLATE)),
