@@ -46,6 +46,7 @@ import {LruCache} from "../cache/lru";
 import {hashKey} from "../cache/hash";
 import {createDvApi} from "../dv/createDvApi";
 import {buildHeatmapOp} from "../dv/heatmapCalendar";
+import {createMomentGlobal} from "../dv/moment";
 import {DvFunctions} from "../query/functions";
 import {evaluateExpression, executeDql, parseDql} from "../query";
 import {buildPageScope} from "../page";
@@ -112,6 +113,13 @@ function findCurrentPage(snapshot: IndexSnapshot, pagePath: string): PageMeta | 
 
 /** WeakMap<snapshot, path→PageMeta> — lives as long as the snapshot does. */
 const snapshotLookup = new WeakMap<IndexSnapshot, Map<string, PageMeta>>();
+
+/**
+ * Moment-compatible `moment` global. Obsidian ships Moment and exposes it
+ * app-wide, so dataviewjs snippets call `moment("2024-01-15").format(...)`
+ * directly; the facade is stateless (one instance serves every block).
+ */
+const momentGlobal = createMomentGlobal();
 
 /**
  * Re-maps synthetic-file stack lines back to user code lines.
@@ -379,6 +387,9 @@ function createSandbox(
 			renderHeatmapCalendar: (_container: unknown, data: unknown): void => {
 				sink.push(buildHeatmapOp(data));
 			},
+			// Obsidian exposes Moment app-wide (`obsidian.d.ts`), so `moment(...)`
+			// works in dataviewjs blocks and inline `$=` queries alike.
+			moment: momentGlobal,
 			console,
 			setTimeout: timers.setTimeout,
 			clearTimeout: timers.clearTimeout,

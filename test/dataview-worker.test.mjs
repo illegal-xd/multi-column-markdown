@@ -146,6 +146,30 @@ test("renderHeatmapCalendar tolerates missing/foreign data without crashing", as
   assert.equal(r.ops[0].boxes.filter((b) => b.classes.includes("hasData")).length, 0);
 });
 
+test("moment is a sandbox global in both blocks and inline queries", async () => {
+  // Obsidian ships Moment app-wide, so dataviewjs snippets call `moment(...)`
+  // directly (not `dv.moment`). The facade must be reachable from the same
+  // context the user code runs in — including `dv.date(...)` interop.
+  const r = await run(`
+    const m = moment("2024-01-15T10:00:00Z");
+    // Calling .utc() keeps the assertion independent of the machine timezone
+    // (a bare moment displays local time, exactly like Obsidian's).
+    dv.paragraph(m.add(90, "minutes").utc().format("YYYY-MM-DD HH:mm"));
+    dv.paragraph(moment.utc("2024-01-31").add(1, "month").format("YYYY-MM-DD"));
+    dv.paragraph(moment(dv.date("2024-01-15")).format("dddd"));
+    dv.paragraph(String(moment.unix(1700000000).valueOf()));
+    dv.paragraph(String(moment("nope").isValid()));
+  `);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.ops.map((o) => o.text), [
+    "2024-01-15 11:30",
+    "2024-02-29",
+    "Monday",
+    "1700000000000",
+    "false",
+  ]);
+});
+
 test("dv.table emits a table op whose cells are the CellValue union", async () => {
   const r = await run('dv.table(["a", "b"], [[1, 2]])');
   assert.equal(r.ok, true);
