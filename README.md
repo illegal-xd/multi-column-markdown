@@ -203,6 +203,36 @@ Main content with **bold**, `inline code`, etc.
 
 ---
 
+## Dataview blocks (`dataview` / `dataviewjs`)
+
+The preview also renders Dataview-style code blocks — DQL queries and full
+`dataviewjs` scripts — plus inline `` `= expr` `` / `` `$= expr` `` queries, backed
+by an incremental workspace index and a worker-thread sandbox:
+
+````markdown
+```dataview
+TABLE file.name AS "File", status
+FROM #project
+WHERE status = "open"
+SORT due ASC
+```
+
+Rating: `= this.rating` · `$= dv.pages("#project").length` files
+````
+
+- **Index** — frontmatter, inline fields, tasks, lists, sections, links, tags/aliases; incremental updates on file
+  change (a one-file save costs ~0.1 ms against ~126 ms for a full 1000-file index).
+- **Sandbox** — each block and inline query runs in a `node:vm` context inside a worker thread, with a per-block
+  timeout that terminates and respawns the thread; one failing block never affects the rest of the document.
+- **Performance** — rendered blocks are cached by content hash + index version, preview refreshes are coalesced, and
+  large tables/task lists are virtualized/paginated in the preview.
+- **Docs:** [usage, API surface & Obsidian differences](docs/dataview/README.md) ·
+  [architecture](docs/dataview/architecture.md) · [performance report](docs/dataview/performance.md)
+
+Run **“Show Dataview Stats (index / cache / workers)”** to inspect index size, cache hit rate and worker counters.
+
+---
+
 ## Differences from the Obsidian plugin
 
 - **Preview rendering only**: editing happens on the marker text in the built-in editor (VSCode cannot render

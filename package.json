@@ -83,6 +83,11 @@
         "command": "multiColumnMarkdown.openPreview",
         "title": "Open Markdown Preview (Columns)",
         "category": "Advanced Multi Column"
+      },
+      {
+        "command": "multiColumnMarkdown.dataviewStats",
+        "title": "Show Dataview Stats (index / cache / workers)",
+        "category": "Advanced Multi Column"
       }
     ],
     "menus": {
@@ -318,6 +323,81 @@
           "default": true,
           "markdownDescription": "[Not implemented yet] Render column headers from `!type: Title` first lines. Configure header types with the **Advanced Multi Column: Configure Column Headers** command."
         },
+        "multiColumnMarkdown.dataview.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Render ```dataview and ```dataviewjs code blocks in the Markdown preview. Applies on the next preview render."
+        },
+        "multiColumnMarkdown.dataview.timeoutMs": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 100,
+          "maximum": 120000,
+          "markdownDescription": "Per-block execution budget (ms). A block that exceeds it has its worker thread terminated and is reported as an error; other blocks are unaffected."
+        },
+        "multiColumnMarkdown.dataview.maxRows": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 10,
+          "maximum": 50000,
+          "markdownDescription": "Maximum rows rendered per dataview table/query. Larger result sets are truncated with a notice; the webview virtualizes whatever is rendered."
+        },
+        "multiColumnMarkdown.dataview.workerPoolSize": {
+          "type": "number",
+          "default": 2,
+          "minimum": 1,
+          "maximum": 8,
+          "markdownDescription": "Worker threads executing dataview code. Blocks from the same file are pinned to one worker; more workers only help when many files are previewed at once."
+        },
+        "multiColumnMarkdown.dataview.cacheSize": {
+          "type": "number",
+          "default": 500,
+          "minimum": 10,
+          "maximum": 10000,
+          "markdownDescription": "Rendered block cache entries (LRU). Cache keys include the index version, so edits invalidate results automatically."
+        },
+        "multiColumnMarkdown.dataview.renderNullAs": {
+          "type": "string",
+          "default": "-",
+          "markdownDescription": "Text used for null/undefined values in tables and lists (Dataview's `renderNullAs`)."
+        },
+        "multiColumnMarkdown.dataview.dateFormat": {
+          "type": "string",
+          "default": "yyyy-MM-dd",
+          "markdownDescription": "Date rendering format (Dataview's `defaultDateFormat`; tokens yyyy/MM/dd/HH/mm/ss)."
+        },
+        "multiColumnMarkdown.dataview.maxRenderDepth": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 16,
+          "markdownDescription": "How deep nested arrays/objects are rendered inside a cell before showing `…` (Dataview's `maxRecursiveRenderDepth`)."
+        },
+        "multiColumnMarkdown.dataview.showResultCount": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Append a small \"N results\" badge under each block (Dataview's `displayResultCount`)."
+        },
+        "multiColumnMarkdown.dataview.inlineQueries": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Enable inline queries: `` `= expr ` `` (DQL) and `` `$= expr ` `` (JS) inside note text."
+        },
+        "multiColumnMarkdown.dataview.inlinePrefix": {
+          "type": "string",
+          "default": "=",
+          "markdownDescription": "Prefix that marks an inline DQL expression (Dataview's \"Inline Query Prefix\")."
+        },
+        "multiColumnMarkdown.dataview.jsInlinePrefix": {
+          "type": "string",
+          "default": "$=",
+          "markdownDescription": "Prefix that marks an inline JavaScript expression (Dataview's \"Javascript Inline Query Prefix\")."
+        },
+        "multiColumnMarkdown.dataview.indexExclude": {
+          "type": "string",
+          "default": "**/{node_modules,.git,dist,out,.obsidian,.trash}/**",
+          "markdownDescription": "Glob of files excluded from the dataview index (passed to the file search). Requires reloading the window to rebuild the index."
+        },
         "multiColumnMarkdown.headerTypes": {
           "type": "array",
           "default": [
@@ -367,7 +447,11 @@
       }
     },
     "markdown.previewStyles": [
-      "./media/previewStyle.css"
+      "./media/previewStyle.css",
+      "./media/dataview.css"
+    ],
+    "markdown.previewScripts": [
+      "./dist/dataviewWebview.js"
     ],
     "markdown.markdownItPlugins": true
   },

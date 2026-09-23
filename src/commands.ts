@@ -44,7 +44,28 @@ export function registerCommands(context: vscode.ExtensionContext): void {
 			}
 			void vscode.commands.executeCommand("markdown.showPreviewToSide", editor.document.uri);
 		}),
+		// Command id lives here (single source of truth: package.json, this file
+		// and test/layout-constants.test.mjs all agree on the registered ids).
+		// The dataview runtime is created independently, so it installs its
+		// handler through this module hook instead of registering its own command.
+		vscode.commands.registerCommand("multiColumnMarkdown.dataviewStats", () => {
+			if (!dataviewStatsHandler) {
+				void vscode.window.showInformationMessage(
+					"Advanced Multi Column: Dataview is not active yet — open a preview containing a ```dataview block first.",
+				);
+				return;
+			}
+			dataviewStatsHandler();
+		}),
 	);
+}
+
+/** Installed by extension.ts once the dataview runtime exists. */
+type DataviewStatsHandler = () => void;
+let dataviewStatsHandler: DataviewStatsHandler | undefined;
+
+export function setDataviewStatsHandler(handler: DataviewStatsHandler | undefined): void {
+	dataviewStatsHandler = handler;
 }
 
 /** Insert a template at the current cursor of the active Markdown editor. */

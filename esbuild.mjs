@@ -13,7 +13,14 @@ const shared = {
 };
 
 async function main() {
-  rmSync("dist", {recursive: true, force: true});
+  // Best-effort clean: a stale/undeletable dist (e.g. files created by another
+  // user, or a Windows file lock) must not abort the build — esbuild overwrites
+  // every output it emits anyway.
+  try {
+    rmSync("dist", {recursive: true, force: true});
+  } catch (err) {
+    console.warn(`[esbuild] could not clean dist (${err.code ?? err.message}); building over it`);
+  }
 
   const configs = [
     // Extension host bundle (Node). vscode is external; the markdown-it
@@ -28,6 +35,27 @@ async function main() {
       format: "cjs",
       external: ["vscode"],
       mainFields: ["module", "main"],
+    },
+    // Dataview sandbox worker. MUST be a separate file: a worker thread that
+    // loaded dist/extension.js would re-run activate(). Bundled for node so the
+    // vm/worker_threads imports resolve at runtime.
+    {
+      ...shared,
+      entryPoints: ["src/dataview/exec/workerEntry.ts"],
+      outfile: "dist/dataviewWorker.js",
+      platform: "node",
+      format: "cjs",
+      mainFields: ["module", "main"],
+    },
+    // Preview webview enhancement (windowed tables, paged task lists). Loaded
+    // by the built-in preview through contributes."markdown.previewScripts";
+    // browser platform, IIFE (the webview has no module loader).
+    {
+      ...shared,
+      entryPoints: ["src/dataview/webview/main.ts"],
+      outfile: "dist/dataviewWebview.js",
+      platform: "browser",
+      format: "iife",
     },
   ];
 

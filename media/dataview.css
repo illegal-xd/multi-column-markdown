@@ -1,0 +1,272 @@
+/* ==========================================================================
+   Dataview — native preview styles
+   类名契约来自 src/dataview/render/html.ts（不要重命名）；增强脚本为
+   src/dataview/webview/main.ts（表格窗口化 / 任务分页 / 骨架屏）。
+
+   规则：
+   - 颜色全部走 --vscode-* 主题变量；fallback 用 CSS 系统色关键字（Canvas/CanvasText/
+     GrayText/ButtonFace/ButtonText…）或 transparent/currentColor，禁止硬编码颜色。
+   - 行高 23px 必须与 main.ts 的 ROW_HEIGHT = 23 保持一致（窗口化 spacer 按该常量
+     的像素倍数计算，见 main.ts spacerRow()）。
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. 容器
+   -------------------------------------------------------------------------- */
+
+.dataview-container {
+	display: block;
+	box-sizing: border-box;
+	margin: 8px 0;
+	color: var(--vscode-editor-foreground, CanvasText);
+}
+
+/* 窄屏：不窗口化的普通表格允许横向滚动（窗口化表格由 .dataview-scroll 承担）。
+   仅在窄屏启用，避免容器成为 scrollport 而破坏 thead 的 sticky 定位。 */
+@media (max-width: 640px) {
+	.dataview-container[data-dv-kind="table"] {
+		overflow-x: auto;
+	}
+}
+
+/* --------------------------------------------------------------------------
+   2. 待渲染态 + 骨架屏
+   -------------------------------------------------------------------------- */
+
+.dataview-pending {
+	min-height: 56px;
+	padding: 8px;
+	border: 1px solid var(--vscode-editorWidget-border, transparent);
+	border-radius: 4px;
+}
+
+.dataview-skeleton {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.dataview-skeleton-bar {
+	height: 10px;
+	border-radius: 3px;
+	background: var(--vscode-editorWidget-border, var(--vscode-input-background, currentColor));
+	animation: dataview-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.dataview-skeleton-bar:nth-child(1) {
+	width: 70%;
+}
+
+.dataview-skeleton-bar:nth-child(2) {
+	width: 90%;
+	animation-delay: 0.15s;
+}
+
+.dataview-skeleton-bar:nth-child(3) {
+	width: 50%;
+	animation-delay: 0.3s;
+}
+
+@keyframes dataview-skeleton-pulse {
+	0%,
+	100% {
+		opacity: 0.25;
+	}
+	50% {
+		opacity: 0.6;
+	}
+}
+
+/* 无障碍：尊重系统的减少动态效果设置 */
+@media (prefers-reduced-motion: reduce) {
+	.dataview-skeleton-bar {
+		animation: none;
+		opacity: 0.4;
+	}
+}
+
+/* --------------------------------------------------------------------------
+   3. 表格
+   -------------------------------------------------------------------------- */
+
+.dataview-table {
+	width: 100%;
+	border-collapse: collapse;
+	background: var(--vscode-editor-background, transparent);
+}
+
+.dataview-table th,
+.dataview-table td {
+	padding: 3px 8px;
+	text-align: left;
+	vertical-align: top;
+	line-height: 1.4;
+	border: 1px solid var(--vscode-panel-border, transparent);
+}
+
+.dataview-table thead th {
+	position: sticky; /* 表头常驻（窗口化/长表滚动时可见） */
+	top: 0;
+	z-index: 2;
+	font-weight: 600;
+	background: var(--vscode-editor-background, Canvas);
+	border-bottom-color: var(--vscode-editorWidget-border, currentColor);
+}
+
+/* 斑马纹（跟随主题 input 底色；不做强对比） */
+.dataview-table tbody tr.dataview-row:nth-child(even) {
+	background: var(--vscode-input-background, transparent);
+}
+
+.dataview-table a {
+	color: var(--vscode-textLink-foreground, currentColor);
+	text-decoration: none;
+}
+
+.dataview-table a:hover {
+	text-decoration: underline;
+}
+
+.dataview-group-row td {
+	font-weight: 600;
+	color: var(--vscode-descriptionForeground, inherit);
+	background: var(--vscode-input-background, transparent);
+}
+
+.dataview-notice-row td {
+	padding: 0;
+	border-color: transparent;
+	background: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   4. 列表 / 任务列表
+   -------------------------------------------------------------------------- */
+
+.dataview-list {
+	margin: 4px 0;
+	padding-left: 22px;
+}
+
+.dataview-task-list {
+	margin: 4px 0;
+	padding-left: 22px;
+	list-style: none;
+}
+
+.dataview-task-list .dataview-task-list {
+	padding-left: 18px;
+}
+
+.dataview-task {
+	list-style: none;
+}
+
+.dataview-task-checkbox {
+	margin: 0 6px 0 0;
+	vertical-align: middle;
+}
+
+.dataview-task-text {
+	color: var(--vscode-editor-foreground, inherit);
+}
+
+/* html.ts 写入 data-dv-status（"x"/"X" = done）——已完成的视觉弱化 */
+.dataview-task[data-dv-status="x"] > .dataview-task-text,
+.dataview-task[data-dv-status="X"] > .dataview-task-text {
+	color: var(--vscode-descriptionForeground, GrayText);
+	text-decoration: line-through;
+}
+
+/* --------------------------------------------------------------------------
+   5. 空态 / 错误 / 提示
+   -------------------------------------------------------------------------- */
+
+.dataview-empty {
+	padding: 4px 0;
+	color: var(--vscode-descriptionForeground, GrayText);
+	font-style: italic;
+}
+
+.dataview-error {
+	padding: 4px 8px;
+	color: var(--vscode-editor-foreground, inherit);
+	border-left: 3px solid var(--vscode-problemsWarningIcon-foreground, currentColor);
+	background: transparent;
+	white-space: pre-wrap;
+}
+
+.dataview-error-detail {
+	margin: 4px 0 0;
+	font-size: 0.9em;
+	color: var(--vscode-descriptionForeground, inherit);
+	overflow-x: auto;
+}
+
+.dataview-notice {
+	padding: 4px 8px;
+	border: 1px solid var(--vscode-editorWidget-border, transparent);
+	border-radius: 3px;
+	color: var(--vscode-descriptionForeground, inherit);
+}
+
+.dataview-notice-warn {
+	color: var(--vscode-problemsWarningIcon-foreground, inherit);
+	border-color: currentColor;
+}
+
+/* --------------------------------------------------------------------------
+   6. 窗口化表格（main.ts 生成）
+   -------------------------------------------------------------------------- */
+
+.dataview-scroll {
+	max-height: 60vh;
+	overflow: auto;
+	border: 1px solid var(--vscode-editorWidget-border, transparent);
+	border-radius: 4px;
+}
+
+/* 固定行高的前提：窗口化表格的单元格保持单行（超出以省略号截断）。
+   行高 23px 与 main.ts 的 ROW_HEIGHT 一致，改其一必须同步改另一处。 */
+.dataview-scroll .dataview-table tbody tr {
+	height: 23px;
+}
+
+.dataview-scroll .dataview-table tbody td {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* 上下占位行：像素高度由 main.ts 内联设置，这里只保证不产生额外尺寸 */
+.dataview-window-spacer td {
+	padding: 0;
+	border: 0;
+	background: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   7. 任务分页“加载更多”
+   -------------------------------------------------------------------------- */
+
+.dataview-more {
+	display: block;
+	width: 100%;
+	margin: 6px 0 0;
+	padding: 4px 10px;
+	font: inherit;
+	cursor: pointer;
+	color: var(--vscode-button-foreground, ButtonText);
+	background: var(--vscode-button-background, ButtonFace);
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 3px;
+}
+
+.dataview-more:hover {
+	background: var(--vscode-button-hoverBackground, ButtonFace);
+}
+
+.dataview-more:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder, currentColor);
+	outline-offset: 1px;
+}

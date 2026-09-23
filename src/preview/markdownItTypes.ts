@@ -25,6 +25,10 @@ export interface InlineRuleState {
 export interface RenderToken {
 	content: string;
 	attrGet(name: string): string | null;
+	/** Fence language hint + optional title ("dataviewjs" | "dataviewjs title"). */
+	info?: string;
+	/** Source line range [start, end) — used as a stable block identity. */
+	map?: [number, number] | null;
 }
 
 export interface MarkdownItLike {
