@@ -283,6 +283,9 @@ function errorMessage(e: unknown): string {
 const ALLOWED_EL_TAGS = new Set([
 	"div", "span", "p", "a", "strong", "em", "code", "b", "i", "u", "s", "small", "sub", "sup",
 	"br", "hr", "h1", "h2", "h3", "h4", "h5", "h6",
+	// Native disclosure: the one interaction that needs no JS, so it is what the
+	// addEventListener warning points users at (see reportUnsupportedEvent).
+	"details", "summary",
 ]);
 
 type ElOp = Extract<RenderOp, {kind: "el"}>;
@@ -358,6 +361,34 @@ function pushChildOp(ctx: ElContext, op: RenderOp): void {
 }
 
 /**
+ * `el.addEventListener(...)` — the sandbox has no DOM and the built-in preview
+ * is static HTML: the only channel to the host is a whole-document
+ * `markdown.preview.refresh`, so no event can reach a block handler (upstream
+ * runs inside the Obsidian app, where a handler can re-render on the spot).
+ * The call is accepted, reported once per listener type *per block* (a silent
+ * no-op would hide the limitation), and never dispatched.
+ */
+const reportedEvents = new WeakMap<OpSink, Set<string>>();
+
+function reportUnsupportedEvent(sink: OpSink, type: string): void {
+	let seen = reportedEvents.get(sink);
+	if (seen === undefined) {
+		seen = new Set();
+		reportedEvents.set(sink, seen);
+	}
+	if (seen.has(type)) return;
+	seen.add(type);
+	sink.push({
+		kind: "notice",
+		level: "warn",
+		message:
+			`dv.el: addEventListener("${type}") cannot run — the dataview sandbox has no DOM and the VSCode ` +
+			`preview is static HTML. Use a link/anchor, <details>+<summary> for disclosure, or let the block ` +
+			`re-render when the index changes.`,
+	});
+}
+
+/**
  * Obsidian elements are chainable: `dv.el("div", "").createEl("b", "hi")`.
  * `appendText` appends to the element's own text (RenderOp.el has one `text`
  * plus `children`, so interleaved text/child order is not representable —
@@ -373,6 +404,12 @@ function elementHandle(tag: string, op: TextualOp, ctx: ElContext): DvElement {
 		createEl(childTag: string, text?: string, options?: DvElOptions): DvElement {
 			return createElInto(ctx, childTag, text, asOptions(options));
 		},
+		addEventListener(type: string): void {
+			reportUnsupportedEvent(ctx.sink, String(type));
+		},
+		removeEventListener(): void {
+			// Nothing was ever registered (see addEventListener) — nothing to undo.
+		},
 	};
 	return handle;
 }
@@ -387,6 +424,10 @@ function noopHandle(tag: string): DvElement {
 		createEl(): DvElement {
 			return noopHandle(tag);
 		},
+		addEventListener(): void {
+			// The tag itself already produced an "not allowed" warning: one notice is enough.
+		},
+		removeEventListener(): void {},
 	};
 	return handle;
 }

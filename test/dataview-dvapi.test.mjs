@@ -136,7 +136,6 @@ function makeDv(overrides = {}) {
 }
 
 // ── fileLink: upstream order + legacy compat ─────────────────────────────
-
 test("dv.fileLink: upstream (path, embed, display) order", () => {
   const {dv} = makeDv();
   const l = dv.fileLink("p.md", true, "Label");
@@ -225,6 +224,45 @@ test("dv.el: non-whitelisted tag degrades to notice+span and its chain is inert"
     {kind: "notice", level: "warn", message: 'dv.el: tag "script" is not allowed; rendered as span.'},
     {kind: "span", text: "alert(1)"},
   ]);
+});
+
+test("dv.el: addEventListener is accepted, never dispatched, one notice per type", () => {
+  const {dv, sink} = makeDv();
+  const box = dv.el("div", "Box");
+  assert.equal(typeof box.addEventListener, "function");
+  assert.equal(typeof box.removeEventListener, "function");
+  let ran = false;
+  box.addEventListener("click", () => {
+    ran = true;
+    dv.span("never");
+  });
+  box.addEventListener("click", () => {}); // same type → still a single notice
+  box.addEventListener("mouseenter", () => {});
+  box.removeEventListener("click", () => {});
+  // The element itself is untouched apart from the notices.
+  assert.deepEqual(sink.ops[0], {kind: "el", tag: "div", text: "Box"});
+  const notices = sink.ops.filter((op) => op.kind === "notice");
+  assert.deepEqual(notices.map((n) => n.level), ["warn", "warn"]);
+  assert.ok(notices[0].message.includes('addEventListener("click")'), notices[0].message);
+  assert.ok(notices[1].message.includes('addEventListener("mouseenter")'), notices[1].message);
+  // Handlers never run and never touch the op tree.
+  assert.equal(ran, false);
+  assert.equal(sink.ops.some((op) => op.kind === "span"), false);
+  // Child elements share the block-scoped dedup.
+  box.createEl("b", "bold").addEventListener("click", () => {});
+  assert.equal(sink.ops.filter((op) => op.kind === "notice").length, 2);
+});
+
+test("dv.el: details/summary are allowed (native disclosure needs no JS)", () => {
+  const {dv, sink} = makeDv();
+  const details = dv.el("details");
+  details.createEl("summary", "Show more");
+  details.createEl("div", "hidden");
+  assert.equal(sink.ops[0].tag, "details");
+  assert.deepEqual(sink.ops[0].children.map((c) => c.tag), ["summary", "div"]);
+  // Non-whitelisted tags keep degrading.
+  dv.el("marquee", "x");
+  assert.equal(sink.ops.some((op) => op.kind === "notice" && op.message.includes("marquee")), true);
 });
 
 test("dv.header returns a chainable element and rejects levels outside [1, 6]", () => {

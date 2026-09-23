@@ -670,6 +670,16 @@ export interface DvElement {
 	readonly tag: string;
 	appendText(text: string): DvElement;
 	createEl(tag: string, text?: string, options?: DvElOptions): DvElement;
+	/**
+	 * Upstream returns a real `HTMLElement`; here the sandbox has no DOM and the
+	 * built-in preview is static HTML (the only channel to the host is a
+	 * whole-document `markdown.preview.refresh`), so a registered listener can
+	 * never run. The call is accepted and reported once per listener type as a
+	 * warning notice instead of failing silently (see docs/dataview/README.md §6).
+	 */
+	addEventListener(type: string, listener?: unknown, options?: unknown): void;
+	/** Counterpart of {@link addEventListener}: nothing is registered, so nothing is removed. */
+	removeEventListener(type: string, listener?: unknown, options?: unknown): void;
 }
 
 /** `dv.value` — upstream re-exports its Values helper namespace here. */

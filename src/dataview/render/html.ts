@@ -130,6 +130,9 @@ const INLINE_TAGS = new Set([
 	"a", "abbr", "b", "bdi", "bdo", "cite", "code", "data", "dfn", "em", "i",
 	"kbd", "mark", "q", "s", "samp", "small", "span", "strong", "sub", "sup",
 	"time", "u", "var",
+	// Disclosure label: a <p> inside <summary> is legal but wrong-looking, so its
+	// text is rendered inline (`dv.el("details").createEl("summary", "…")`).
+	"summary",
 ]);
 
 /** `dv.el(tag, text)` text renderer: inline for inline tags, block otherwise. */

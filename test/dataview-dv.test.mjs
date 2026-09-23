@@ -479,6 +479,27 @@ test("el op renders tag/attrs/text; void tags; on* handlers dropped", () => {
   assert.ok(!html.includes("onclick"), html);
 });
 
+test("details/summary render as native disclosure (summary text stays inline)", () => {
+  const html = renderOpsToHtml(
+    [
+      {
+        kind: "el",
+        tag: "details",
+        text: "",
+        children: [
+          {kind: "el", tag: "summary", text: "**More**"},
+          {kind: "el", tag: "div", text: "hidden"},
+        ],
+      },
+    ],
+    {basePath: "a.md", renderInline: (md) => `INLINE(${md})`, renderMarkdownBlock: (md) => `BLOCK(${md})`},
+  );
+  assert.ok(html.includes('<details>'), html);
+  // summary is inline: its text is not wrapped in a block-level <p>.
+  assert.ok(html.includes("<summary>INLINE(**More**)</summary>"), html);
+  assert.ok(!html.includes("<summary><p>"), html);
+});
+
 // ── renderOpsToHtml: cell rendering rules ─────────────────────────────────
 
 test("cell rules: date/dur/bool/arr/obj/null/html/md", () => {
