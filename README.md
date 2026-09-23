@@ -224,6 +224,8 @@ Rating: `= this.rating` · `$= dv.pages("#project").length` files
   change (a one-file save costs ~0.1 ms against ~126 ms for a full 1000-file index).
 - **Sandbox** — each block and inline query runs in a `node:vm` context inside a worker thread, with a per-block
   timeout that terminates and respawns the thread; one failing block never affects the rest of the document.
+- **Batched rendering** — blocks execute through a task queue: at most 3 blocks of one file run at once, the rest wait
+  their turn, and each finished batch refreshes the preview instead of blocking the document until the last block.
 - **Performance** — rendered blocks are cached by content hash + index version, preview refreshes are coalesced, and
   large tables/task lists are virtualized/paginated in the preview.
 - **Stable scroll** — refreshes re-anchor the preview to the `data-line` block that was at the top, so resolving a

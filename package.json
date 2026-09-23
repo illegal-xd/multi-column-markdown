@@ -344,10 +344,10 @@
         },
         "multiColumnMarkdown.dataview.workerPoolSize": {
           "type": "number",
-          "default": 2,
+          "default": 3,
           "minimum": 1,
           "maximum": 8,
-          "markdownDescription": "Worker threads executing dataview code. Blocks from the same file are pinned to one worker; more workers only help when many files are previewed at once."
+          "markdownDescription": "Worker threads executing dataview code (one thread per concurrently running block). Blocks of the same file run in batches of up to 3 at once and the rest queue; more workers help both multi-block and multi-file previews."
         },
         "multiColumnMarkdown.dataview.cacheSize": {
           "type": "number",

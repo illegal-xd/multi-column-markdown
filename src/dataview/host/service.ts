@@ -97,6 +97,8 @@ export interface DataviewServiceDeps {
 	refreshDebounceMs?: number;
 	/** Minimum spacing between two refreshes. Default 400ms. */
 	refreshMinIntervalMs?: number;
+	/** Blocks settled per progressive refresh while a wave is still running. Default 3. */
+	refreshBatchSize?: number;
 }
 
 export interface DataviewServiceStats {
@@ -125,10 +127,20 @@ export interface DataviewService extends BlockResultProvider {
 
 const DEFAULT_TIMEOUT_MS = 5000;
 const DEFAULT_MAX_ROWS = 1000;
-const DEFAULT_POOL_SIZE = 2;
+/**
+ * Worker threads. Also the batch size for blocks of one page: the exec scheduler
+ * runs up to `min(poolSize, 3)` blocks of a document at once (see exec/service.ts).
+ */
+const DEFAULT_POOL_SIZE = 3;
 const DEFAULT_CACHE_SIZE = 500;
 const DEFAULT_REFRESH_DEBOUNCE_MS = 120;
 const DEFAULT_REFRESH_MIN_INTERVAL_MS = 400;
+/**
+ * Refresh after this many blocks of the current wave settled, instead of waiting
+ * for the slowest one: a document with many blocks shows results in batches.
+ * The debounce/min-interval throttle still caps how often the preview re-renders.
+ */
+const DEFAULT_REFRESH_BATCH_SIZE = 3;
 /** Safety net: refresh anyway if a wave stays unsettled this long (stuck worker). */
 const STUCK_WAVE_MS = 3000;
 
@@ -136,6 +148,8 @@ interface PendingWave {
 	/** jobId → cache key, so a settled job can be matched back. */
 	jobs: Map<string, string>;
 	since: number;
+	/** Jobs settled since the last batch refresh was scheduled. */
+	settledSinceRefresh: number;
 }
 
 export function createDataviewService(deps: DataviewServiceDeps): DataviewService {
@@ -260,7 +274,7 @@ export function createDataviewService(deps: DataviewServiceDeps): DataviewServic
 
 	function startWave(jobId: string, key: string): void {
 		if (wave === null) {
-			wave = {jobs: new Map(), since: Date.now()};
+			wave = {jobs: new Map(), since: Date.now(), settledSinceRefresh: 0};
 			// Safety net: a worker that never answers (host terminate races,
 			// unexpected hangs) must not leave the preview spinning forever.
 			stuckTimer = setTimeout(() => {
@@ -281,6 +295,15 @@ export function createDataviewService(deps: DataviewServiceDeps): DataviewServic
 		if (wave.jobs.size === 0) {
 			wave = null;
 			clearRefreshTimers();
+			scheduleRefresh();
+			return;
+		}
+		// Progressive feedback: a finished batch refreshes right away (throttled)
+		// instead of leaving the reader at placeholders until the slowest block of
+		// the document is done. The final refresh still happens when the wave empties.
+		wave.settledSinceRefresh += 1;
+		if (wave.settledSinceRefresh >= (deps.refreshBatchSize ?? DEFAULT_REFRESH_BATCH_SIZE)) {
+			wave.settledSinceRefresh = 0;
 			scheduleRefresh();
 		}
 	}

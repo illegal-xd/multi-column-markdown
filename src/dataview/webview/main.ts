@@ -122,9 +122,28 @@ function fragmentOf(html: string): DocumentFragment {
 	return document.createRange().createContextualFragment(html);
 }
 
+/**
+ * 表格片段（`<td>`/`<th>`）必须在 **`<tr>` 上下文** 里解析。
+ *
+ * `createContextualFragment` 用 Range 的 startContainer 作为解析上下文；新建 Range 的容器
+ * 是 document，即 "in body" 插入模式 —— 那里 `<td>`/`<th>`/`<tr>` 开始标签会被忽略，单元格
+ * 内容退化为 `<tr>` 里的裸文本，浏览器再把它并进一个匿名单元格（宽表窗口化后「所有数据挤在
+ * 第一列」）。把 Range 锚在分离的 `<tr>` 上等价于浏览器里的 `tr.innerHTML = "<td>…"`，
+ * 表格结构得以保留。（`<li>` 这类 body 合法标签继续走 `fragmentOf`。）
+ */
+let tableContext: HTMLElement | null = null;
+
+/** 导出仅供测试断言「解析上下文 = <tr>」这一契约（浏览器行为无法在 node 里跑）。 */
+export function tableFragment(markup: string): DocumentFragment {
+	tableContext ??= document.createElement("tr");
+	const range = document.createRange();
+	range.selectNodeContents(tableContext);
+	return range.createContextualFragment(markup);
+}
+
 /** payload 里 cell/group 通常是完整 <td>；兼容裸内容形态以防契约漂移。 */
-function cellFragment(html: string): DocumentFragment {
-	return fragmentOf(/^\s*<td[\s>]/i.test(html) ? html : `<td>${html}</td>`);
+export function cellFragment(html: string): DocumentFragment {
+	return tableFragment(/^\s*<td[\s>]/i.test(html) ? html : `<td>${html}</td>`);
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +214,8 @@ function enhanceTable(el: Element, payload: TablePayload): void {
 		table.className = "dataview-table";
 		const thead = document.createElement("thead");
 		const headRow = document.createElement("tr");
-		for (const h of payload.headers) headRow.appendChild(fragmentOf(h));
+		// 表头格同样是表片段：必须用 `<tr>` 上下文，否则 `<th>` 会被丢弃。
+		for (const h of payload.headers) headRow.appendChild(tableFragment(h));
 		thead.appendChild(headRow);
 		table.appendChild(thead);
 	} else {

@@ -23,7 +23,7 @@ src/
 │  │   workerRuntime.ts             # vm + dv/DQL execution (no vscode, no bridge)
 │  │   workerEntry.ts               # dist/dataviewWorker.js entry
 │  │   workerBridge.ts              # worker-side protocol plumbing
-│  │   service.ts                   # host pool: sticky slots, timeout, cancel, IO
+│  │   service.ts                   # host pool: task queue + slots, timeout, cancel, IO
 │  ├─ render/html.ts                # RenderOp → HTML (+ payload embedding)
 │  ├─ preview/fencePlugin.ts        # markdown-it fence interception (no vscode)
 │  ├─ host/                         # ── VSCode integration ───────────────────
@@ -173,7 +173,7 @@ interface WorkerRuntimeDeps {
 
 | Resource | Owner | Release |
 |---|---|---|
-| Worker threads | `exec/service.ts` (pool of N, sticky by page hash) | timeout/cancel → `terminate()` + respawn; `dispose()` awaited from `deactivate()` |
+| Worker threads | `exec/service.ts` (pool of N, task queue: ≤3 blocks per page at once, least-loaded slot) | timeout/cancel → `terminate()` + respawn; `dispose()` awaited from `deactivate()` |
 | Per-job timers created by user code | `workerRuntime.createTimers()` | released in a `finally` when the job settles |
 | `vm` context + `dv`/`app` | per job (isolation) | GC'd with the job; page-object memo is `WeakMap`-keyed on immutable `PageMeta` |
 | File watcher + debounce timers | `host/indexer.ts` | `dispose()` clears timers and closes the watcher (no post-dispose mutations) |
@@ -190,4 +190,4 @@ interface WorkerRuntimeDeps {
 | `dv.pages()` scan (1000 pages) | 2.4 ms → **0.5 ms** after memo | `WeakMap<PageMeta, PageObject>` in `page.ts` |
 | Per-job fixed cost | ~1.9 ms | snapshot-keyed path lookup map; the vm context (isolation) is the irreducible part |
 | Render 1000×6 table | 3.1 ms (no payload) / 10.0 ms (payload) | server-side row/cell caps; webview windowing only for ≥100 rows |
-| Worker round-trip | 97 ms first (spawn + snapshot clone), 9.9 ms after | sticky slot + `syncIndex` only on index version change |
+| Worker round-trip | 97 ms first (spawn + snapshot clone), 9.9 ms after | a slot keeps the snapshot across jobs ⇒ `syncIndex` only on index version change |

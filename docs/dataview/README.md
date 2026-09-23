@@ -23,8 +23,12 @@ Verified against: `0.5.0` + Dataview subsystem (Step C integration).
    workers)”** — it prints index size, cache hit rate, job/timeout counters and
    the raw timing series to the *Multi Column: Dataview* output channel.
 
-A block that is still running shows a skeleton; when its worker job finishes the
-preview refreshes once (not once per block) and the rendered table replaces it.
+A block that is still running shows a skeleton. Blocks are executed through a
+**task queue**: at most 3 blocks of the same file run at once (`workerPoolSize`),
+the rest are queued and start in batches as workers free up; every batch that
+finishes refreshes the preview (debounced, so a burst still coalesces into a
+handful of refreshes) instead of holding the whole document back until the last
+block is done.
 
 ## 2. Settings
 
@@ -33,7 +37,7 @@ preview refreshes once (not once per block) and the rendered table replaces it.
 | `multiColumnMarkdown.dataview.enabled` | `true` | Render `dataview`/`dataviewjs` fences at all. |
 | `multiColumnMarkdown.dataview.timeoutMs` | `5000` | Per-block budget. On expiry the worker thread is **terminated** and respawned; the block shows an error, other blocks are unaffected. |
 | `multiColumnMarkdown.dataview.maxRows` | `1000` | Rows per table/query before truncation (a notice is emitted). |
-| `multiColumnMarkdown.dataview.workerPoolSize` | `2` | Sandbox threads. Blocks from one file are pinned to one thread. |
+| `multiColumnMarkdown.dataview.workerPoolSize` | `3` | Sandbox threads (one running block per thread). At most **3 blocks of the same file run at once** — the rest queue as a task queue and start as slots free up; extra threads help when several files are previewed at once. |
 | `multiColumnMarkdown.dataview.cacheSize` | `500` | LRU entries of rendered blocks (key includes index version). |
 | `multiColumnMarkdown.dataview.indexExclude` | `**/{node_modules,.git,dist,out,.obsidian,.trash}/**` | Files excluded from indexing. |
 | `multiColumnMarkdown.dataview.renderNullAs` | `-` | Text for `null`/`undefined` cells (upstream `renderNullAs`). |
@@ -253,7 +257,8 @@ repository like any other executable code in that workspace.
 |---|---|
 | `file.day` | Obsidian's Periodic Notes concept. Use `file.name`/`file.ctime` or an explicit frontmatter field. |
 | `dv.span` / `dv.paragraph` / `dv.header` options | `{cls, attr}` are accepted then **dropped** for these three (their RenderOps carry text only). Use `dv.el(tag, text, {cls, attr})` when classes/attributes matter. |
-| `dv.el` with arbitrary tags | Tag whitelist (div/span/p/h1-h6/a/strong/em/code/b/i/u/s/small/sub/sup/br/hr). Other tags degrade to a warning notice + `<span>`; `on*` attributes are stripped. |
+| `dv.el` with arbitrary tags | Tag whitelist (div/span/p/h1-h6/a/strong/em/code/b/i/u/s/small/sub/sup/br/hr/**details/summary**). Other tags degrade to a warning notice + `<span>`; `on*` attributes are stripped. |
+| `el.addEventListener(...)` / `el.removeEventListener(...)` | Accepted but **never dispatched** — one warning notice per listener type per block. The sandbox has no DOM and the built-in preview only ever asks the host for a whole-document `markdown.preview.refresh`: there is no channel back from preview to block, so a handler cannot run (upstream runs inside the Obsidian app, where it can re-render in place). Working alternatives: `[[links]]`/anchors, `<details>`+`<summary>` for disclosure, or let the query re-run when the index changes. |
 | `dv.el` block/flex containers (`container`, `dv.container`) | No real DOM access from the sandbox — `dv.el` returns a chainable handle that appends into the emitted op tree, and `container:` is ignored. |
 | `input` as a DOM container | See below: `input` here is the block's source text, so `dv.el(tag, text, {container: input})` does not apply. |
 | `app` object | Partial shim only: `vault.getAbstractFileByPath/read/getFiles`, `metadataCache.getFileCache`, `workspace.getActiveFile`. No `TFolder` tree, no `resolvedLinks`, no attachment/media handling, no `app.plugins`. |

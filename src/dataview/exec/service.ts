@@ -1,10 +1,16 @@
 /**
  * Host-side sandbox execution service (B4).
  *
- * Sticky worker pool + per-slot FIFO queue + timeout/cancel via process-level
+ * Worker pool + per-slot FIFO queue + timeout/cancel via process-level
  * `terminate()` + IO bridge + backpressure. Business logic (dv/DQL) is NOT
  * known here — jobs are opaque `ExecJob`s; the integrator points `workerPath`
  * at the bundled worker entry (startWorker({runJob})).
+ *
+ * Scheduling: jobs land on the least busy slot, and a page may run up to
+ * `MAX_CONCURRENT_PER_PAGE` blocks at once (the rest wait in the queue and start
+ * as earlier ones finish — batches). Blocks are independent, so spreading one
+ * page over several workers is safe; the cost is one snapshot clone per slot per
+ * index version (`syncIndex`) instead of one per page.
  *
  * Contract: `run()` NEVER rejects — every failure resolves an ExecResult with
  * `ok:false` (a dropped rejection would take down the preview render path).
@@ -20,7 +26,6 @@ import {access, readFile} from "node:fs/promises";
 import {cpus} from "node:os";
 import {join} from "node:path";
 import {Worker} from "node:worker_threads";
-import {hashKey} from "../cache/hash";
 import type {
 	ExecJob,
 	ExecResult,
@@ -38,6 +43,12 @@ const DEFAULT_MAX_CODE_BYTES = 256 * 1024;
 const DEFAULT_TIMEOUT_MS = 5_000;
 /** Spawn failures before a slot is declared broken (guards respawn storms). */
 const MAX_SPAWN_FAILURES = 3;
+/**
+ * Blocks of one page allowed to execute at the same time. Batching keeps the
+ * preview responsive (results arrive in waves) without letting a 30-block
+ * document occupy every worker.
+ */
+const MAX_CONCURRENT_PER_PAGE = 3;
 
 interface Queued {
 	job: ExecJob;
@@ -303,13 +314,69 @@ export function createExecService(opts: ExecServiceOptions): ExecService {
 		void retireAndRespawn(slot, "timeout");
 	}
 
-	// Sticky routing: same pagePath ⇒ same slot (sha1-based, deterministic).
-	// Perf rationale: each syncIndex structured-clones the whole snapshot
-	// (potentially several MB) across postMessage; pinning a page to a slot
-	// means the snapshot is re-sent only on index version bumps — not per job.
-	function hashSlot(pagePath: string): number {
-		const hex = hashKey(pagePath).slice(0, 8);
-		return (parseInt(hex, 16) >>> 0) % poolSize;
+	// Load-aware routing. Jobs used to be pinned to one slot per page (hash), which
+	// serialized every block of a document on a single worker; blocks are
+	// independent, so the least busy slot takes the next job and the per-page cap
+	// in `takeRunnable` keeps a document from occupying the whole pool.
+	function pickSlot(): Slot {
+		let best = slots[0]!;
+		let bestLoad = Number.POSITIVE_INFINITY;
+		for (const s of slots) {
+			const load = s.queue.length + (s.inFlight ? 1 : 0);
+			if (load < bestLoad) {
+				best = s;
+				bestLoad = load;
+			}
+		}
+		return best;
+	}
+
+	/** Running jobs of `pagePath` (the batch counter for the per-page cap). */
+	function pageInFlight(pagePath: string): number {
+		let n = 0;
+		for (const s of slots) {
+			if (s.inFlight?.job.pagePath === pagePath) n++;
+		}
+		return n;
+	}
+
+	/** Any job waiting anywhere in the pool (pump's lazy-spawn guard). */
+	function hasQueued(): boolean {
+		for (const s of slots) {
+			if (s.queue.length > 0) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Shift the earliest-enqueued job whose page is below the concurrency cap,
+	 * scanning EVERY slot's queue: a job queued behind a slow block of its own
+	 * slot must not idle while another worker is free (head-of-line blocking
+	 * would turn 8 blocks into 4 sequential waves instead of 3). A job whose
+	 * page already runs `MAX_CONCURRENT_PER_PAGE` blocks stays queued and the
+	 * next one is considered instead.
+	 */
+	function takeRunnable(): Queued | undefined {
+		const limit = Math.min(poolSize, MAX_CONCURRENT_PER_PAGE);
+		let best: {slot: Slot; index: number; queued: Queued} | undefined;
+		for (const slot of slots) {
+			const queue = slot.queue;
+			for (let i = 0; i < queue.length; i++) {
+				const q = queue[i]!;
+				if (pageInFlight(q.job.pagePath) >= limit) continue;
+				// Queues are FIFO by enqueue time, so the first runnable job of a
+				// queue is that queue's oldest runnable one.
+				if (!best || q.enqueuedAt < best.queued.enqueuedAt) {
+					best = {slot, index: i, queued: q};
+				}
+				break;
+			}
+		}
+		if (!best) {
+			return undefined;
+		}
+		best.slot.queue.splice(best.index, 1);
+		return best.queued;
 	}
 
 	function dispatch(slot: Slot, q: Queued): void {
@@ -340,27 +407,33 @@ export function createExecService(opts: ExecServiceOptions): ExecService {
 		if (disposed) {
 			return;
 		}
-		// Scan every slot (not just a global head): a job whose sticky slot is
-		// busy waits in ITS slot's FIFO while other slots keep draining — this
-		// preserves per-page ordering without head-of-line blocking the pool.
+		// Every free slot pulls from the POOL-WIDE oldest-runnable job (see
+		// takeRunnable), so a job queued behind a slow block of its own slot still
+		// starts as soon as any worker frees up. `takeRunnable` returning nothing
+		// means everything left is at its page cap: wait for a settle event.
 		for (const slot of slots) {
 			if (slot.broken) {
 				flushSlot(slot, "Dataview worker unavailable (repeated failures)");
 				continue;
 			}
-			if (slot.inFlight || slot.retiring || slot.queue.length === 0) {
+			if (slot.inFlight || slot.retiring) {
 				continue;
+			}
+			if (!hasQueued()) {
+				break; // nothing queued anywhere → no reason to spawn a worker
+			}
+			const q = takeRunnable();
+			if (!q) {
+				break; // remaining jobs are all above their page's concurrency cap
 			}
 			if (!slot.worker) {
 				spawn(slot); // lazy spawn
 			}
 			if (!slot.worker || slot.broken) {
-				continue;
+				slot.queue.unshift(q); // never lose a job to a failed spawn
+				break;
 			}
-			const q = slot.queue.shift();
-			if (q) {
-				dispatch(slot, q);
-			}
+			dispatch(slot, q);
 		}
 	}
 
@@ -397,7 +470,7 @@ export function createExecService(opts: ExecServiceOptions): ExecService {
 				resolve(errResult(job, "queue full", 0));
 				return;
 			}
-			const slot = slots[hashSlot(job.pagePath)];
+			const slot = pickSlot();
 			slot.queue.push({job, resolve, enqueuedAt: Date.now()});
 			try {
 				pump();

@@ -75,7 +75,7 @@ rows; smaller tables never pay it.
 | `new vm.Script` compile (3.9 KB block) | 0.0072 ms | — |
 | 1e6-iteration JS loop (CPU reference) | 11.2 ms | the sandbox's own CPU ceiling reference |
 | Worker round-trip, 1st job | **65.8 ms** | includes thread spawn + `syncIndex` structured clone of 1000 pages |
-| Worker round-trip, 2nd/3rd job | **2.82 / 2.46 ms** | sticky slot + snapshot already in the worker ⇒ **23×** faster than the first |
+| Worker round-trip, 2nd/3rd job | **2.82 / 2.46 ms** | same slot, snapshot already in the worker ⇒ **23×** faster than the first |
 
 ### Honest correction to an earlier assumption
 
@@ -139,5 +139,5 @@ Downstream effect in the benchmark suite: DQL exec 4.36 → 1.78 ms, warm vm job
 | DQL parse p50 | < 5 ms | 0.006–0.04 ms | parser regressions |
 | Render (payload on) | < 150 ms | 11 ms | dropping the row/cell budget |
 | Warm vm job p50 | < 100 ms | 3.8 ms | deep-cloning the snapshot per job |
-| Worker 2nd job vs 1st | ≥ 1.5× | 23× | losing sticky slots / version-gated sync |
+| Worker 2nd job vs 1st | ≥ 1.5× | 23× | losing the warm-slot snapshot / version-gated sync |
 | Heap after indexing 1000 pages | < 200 MB | 4.2 MB | retaining the raw corpus |

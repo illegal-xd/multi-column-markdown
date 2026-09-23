@@ -520,13 +520,17 @@ function seedStore(pages) {
 
 function createHarness({store, deps} = {}) {
   const realStore = store ?? seedStore([["page.md", "# Page\n\n#proj\n"]]);
-  const counters = {refreshes: 0};
+  // completedAtRefresh: exec.completed at each refresh — lets a test prove the
+  // preview updates WHILE a wave is still running (progressive batches).
+  const counters = {refreshes: 0, completedAtRefresh: []};
+  let serviceRef = null;
   const service = createDataviewService({
     workerPath: bundles.worker,
     store: realStore,
     toRelativePath: (p) => (p === undefined ? undefined : p.split("/").slice(-1)[0]),
     refresh: () => {
       counters.refreshes++;
+      counters.completedAtRefresh.push(serviceRef ? serviceRef.stats().exec.completed : -1);
     },
     isIndexReady: () => true,
     hostIo: {read: async () => "io-content", exists: async () => true},
@@ -535,6 +539,7 @@ function createHarness({store, deps} = {}) {
     poolSize: 2,
     ...(deps ?? {}),
   });
+  serviceRef = service;
   return {store: realStore, service, counters, dispose: () => service.dispose()};
 }
 
@@ -643,6 +648,38 @@ test("service C18: 5 blocks in one document coalesce into at most 2 preview refr
     assert.ok(stats.refreshes <= 2, `refreshes=${stats.refreshes}`);
     assert.equal(stats.refreshes, h.counters.refreshes, "stats.refreshes must match the injected refresh() calls");
     assert.equal(stats.exec.completed, 5);
+  } finally {
+    await h.dispose();
+  }
+});
+
+test("service C18b: slow blocks refresh progressively (after each batch), not only at the end", async () => {
+  const h = createHarness({deps: {poolSize: 3}});
+  try {
+    const env = PAGE_ENV();
+    // 7 blocks that each keep their worker busy for 150ms: with the per-page cap
+    // of 3 the document drains in 3 batches, so the preview must already show
+    // the first results while the last blocks are still running.
+    const codes = Array.from({length: 7}, (_, i) => `await new Promise((r) => setTimeout(r, 150)); dv.paragraph("b${i}")`);
+
+    const firstPass = codes.map((c) => h.service.getBlock(env, "dataviewjs", c));
+    assert.equal(firstPass.filter((s) => s.status === "pending").length, 7);
+
+    await waitFor(() => codes.every((c) => h.service.getBlock(env, "dataviewjs", c).status === "ready"), {
+      label: "all 7 slow blocks ready",
+      timeoutMs: 20000,
+      state: () => ({exec: h.service.stats().exec, refreshes: h.service.stats().refreshes}),
+    });
+    await sleep(250); // let debounce + min-interval windows close
+
+    const stats = h.service.stats();
+    console.log(`[C18b] refreshes=${stats.refreshes} completedAtRefresh=${JSON.stringify(h.counters.completedAtRefresh)}`);
+    assert.equal(stats.exec.completed, 7);
+    assert.ok(stats.refreshes >= 2, `expected progressive refreshes, got ${stats.refreshes}`);
+    assert.ok(
+      h.counters.completedAtRefresh.some((n) => n > 0 && n < 7),
+      `at least one refresh must land while blocks are still running, got ${JSON.stringify(h.counters.completedAtRefresh)}`,
+    );
   } finally {
     await h.dispose();
   }

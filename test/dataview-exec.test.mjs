@@ -39,6 +39,7 @@ startWorker({
     if (code === "hang") { for (;;) { /* spin: only host terminate can interrupt */ } }
     if (code === "never") return new Promise(() => {});
     if (code.indexOf("sleep:") === 0) { await sleep(Number(code.slice(6))); return done([{kind: "span", text: "slept"}]); }
+    if (code.indexOf("probe:") === 0) { await sleep(Number(code.slice(6))); return done([{kind: "span", text: "tid=" + threadId + " start=" + started + " end=" + Date.now()}]); }
     if (code.indexOf("io:") === 0) { const c = await io.read(code.slice(3)); return done([{kind: "span", text: "io=" + c}]); }
     if (code.indexOf("ioexists:") === 0) { const e = await io.exists(code.slice(9)); return done([{kind: "span", text: "exists=" + e}]); }
     if (code === "tid") return done([{kind: "span", text: "tid=" + threadId}]);
@@ -120,8 +121,41 @@ test("normal job round-trip returns ops", {timeout: 20000}, async () => {
   }
 });
 
-// ── 2. timeout: while(true) and never-resolving deps ──────────────────────
+// ── 1b. batching: many blocks of ONE page ─────────────────────────────────
 
+test("blocks of one page run in batches: ≤3 at once, the rest queue", {timeout: 40000}, async () => {
+  // poolSize 4 so the cap — not the pool — is what limits concurrency.
+  const svc = createExecService({workerPath: workerBundle, poolSize: 4});
+  try {
+    const MS = 250;
+    const jobs = Array.from({length: 8}, (_, i) => job(`probe:${MS}`, {blockIndex: i}));
+    const t0 = Date.now();
+    const results = await Promise.all(jobs.map((j) => svc.run(j)));
+    const elapsed = Date.now() - t0;
+    assert.equal(results.every((r) => r.ok), true, "queued jobs must all run (nothing dropped)");
+    assert.equal(svc.stats().completed, 8);
+    // Every job reports when its worker started and finished, and which thread
+    // ran it. Overlapping [start, end] windows measure REAL concurrency; thread
+    // ids alone would over-count (8 queued jobs legitimately touch more than 3
+    // threads over successive batches).
+    const spans = results.map((r) => /tid=(\d+) start=(\d+) end=(\d+)/.exec(r.ops[0].text))
+      .map((m) => ({tid: m[1], start: Number(m[2]), end: Number(m[3])}));
+    assert.equal(spans.length, 8);
+    // Concurrency at an instant: how many jobs were alive at each job's start
+    // (the count only grows at starts, so the maximum is attained at one).
+    // Counting pairwise intersections instead would over-count tail slivers.
+    const concurrency = Math.max(...spans.map((s) => spans.filter((o) => o.start <= s.start && s.start < o.end).length));
+    assert.ok(concurrency <= 3, `at most 3 blocks of one page at once (saw ${concurrency} of 8, elapsed ${elapsed}ms)`);
+    assert.ok(concurrency >= 2, "blocks of one page must run in parallel, not one by one");
+    // 8 jobs / 3 per batch ⇒ at least ceil(8/3)=3 batches ⇒ the last job cannot
+    // start before 2 × MS (one batch would mean no cap at all).
+    assert.ok(elapsed >= MS * 2, `jobs must queue in batches (8 × ${MS}ms finished in ${elapsed}ms)`);
+  } finally {
+    await svc.dispose();
+  }
+});
+
+// ── 2. timeout: while(true) and never-resolving deps ──────────────────────
 test("timeout kills a spinning worker, respawns, and the pool recovers", {timeout: 20000}, async () => {
   const svc = createExecService({workerPath: workerBundle, poolSize: 1});
   try {
