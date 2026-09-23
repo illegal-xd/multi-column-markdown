@@ -44,7 +44,14 @@ export function installWikilinkInline(md: MarkdownIt): void {
 		if (silent) return false;
 		const token = state.push("amc_wikilink", "a", 0);
 		const parsed = parseWikilinkTarget(`${String(match[1]).trim()}|${match[2] ?? ""}`);
-		const hrefTarget = parsed.target.toLowerCase().endsWith(".md") ? parsed.target : `${parsed.target}.md`;
+		const file = parsed.target.toLowerCase().endsWith(".md") ? parsed.target : `${parsed.target}.md`;
+		// Vault paths (`[[folder/note]]`) are workspace-root-relative (Obsidian, and the
+		// README contract), while VSCode resolves an href against the *document*
+		// directory — so a path written in a subfolder must be anchored with a leading
+		// "/" (VSCode's preview resolves that against the workspace folder root, the
+		// same base `![[…]]` embeds use). Bare names keep the document-relative form:
+		// a static href cannot reproduce Obsidian's vault-wide name lookup.
+		const hrefTarget = parsed.target.includes("/") && !parsed.target.startsWith("/") ? `/${file}` : file;
 		token.attrSet("href", `${hrefTarget}${wikilinkFragment(parsed.fragment)}`);
 		token.content = parsed.alias ?? parsed.target;
 		state.pos += match[0].length;

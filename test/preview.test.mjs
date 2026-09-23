@@ -105,14 +105,23 @@ test("no sep token → shrink unaffected (default gap only)", () => {
 
 test("wikilink alias and heading render", () => {
   const html = render("[[docs/guide#Setup Here|Read guide]]");
-  assert.ok(html.includes('href="docs/guide.md#setup-here"'));
+  assert.ok(html.includes('href="/docs/guide.md#setup-here"'));
   assert.ok(html.includes(">Read guide</a>"));
 });
 
 test("wikilink paths with an extension do not duplicate .md", () => {
   const html = render("[[docs/guide.md|Guide]]");
-  assert.ok(html.includes('href="docs/guide.md"'));
+  assert.ok(html.includes('href="/docs/guide.md"'));
   assert.ok(!html.includes("guide.md.md"));
+});
+
+test("vault paths stay workspace-root-relative from any folder", () => {
+  // `p.file.path` handed to `[[…]]` is workspace-relative ("preview/preview.md").
+  // Resolved against the document directory instead, a page in preview/ would look
+  // for preview/preview/preview.md, so folder paths are anchored with a leading "/".
+  const html = render("[[preview/preview.md|preview.md]]");
+  assert.ok(html.includes('href="/preview/preview.md"'), html);
+  assert.ok(html.includes(">preview.md</a>"));
 });
 
 test("wikilink + image embed render", () => {
