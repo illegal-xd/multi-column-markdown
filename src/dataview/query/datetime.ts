@@ -182,6 +182,11 @@ class DvDateImpl implements DvDate {
 		return this.#t;
 	}
 
+	/** Luxon `DateTime.toJSDate`: a native `Date` for the same instant. */
+	toJSDate(): Date {
+		return this.d;
+	}
+
 	plus(delta: DateDelta): DvDate {
 		return new DvDateImpl(shift(this.#t, delta, 1));
 	}

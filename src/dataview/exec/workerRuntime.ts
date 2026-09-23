@@ -45,6 +45,7 @@ import {createAppShim} from "../adapter/shim";
 import {LruCache} from "../cache/lru";
 import {hashKey} from "../cache/hash";
 import {createDvApi} from "../dv/createDvApi";
+import {buildHeatmapOp} from "../dv/heatmapCalendar";
 import {DvFunctions} from "../query/functions";
 import {evaluateExpression, executeDql, parseDql} from "../query";
 import {buildPageScope} from "../page";
@@ -371,6 +372,13 @@ function createSandbox(
 			dataview: dv,
 			app: createAppShim(config),
 			input: job.code,
+			// The Heatmap Calendar plugin (Obsidian) publishes this as a *global*, so
+			// vault snippets call `renderHeatmapCalendar(this.container, data)`. The
+			// container is ignored: the sandbox has no DOM, the emitted op renders
+			// into the block (same contract as `dv.container`).
+			renderHeatmapCalendar: (_container: unknown, data: unknown): void => {
+				sink.push(buildHeatmapOp(data));
+			},
 			console,
 			setTimeout: timers.setTimeout,
 			clearTimeout: timers.clearTimeout,

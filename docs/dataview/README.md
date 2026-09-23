@@ -147,6 +147,14 @@ dv.io.load(source)         dv.io.read(path)       dv.io.normalize(path)  dv.io.c
 `dv.fileLink(path, embed, display)` follows upstream argument order (the legacy
 `(path, display, embed)` order is still accepted with a one-time warning).
 
+Dates are Luxon-shaped (`DvDate`) and carry the full method surface:
+`year/month/day/hour/minute/second/weekday`, `toISO` / `toMillis` / **`toJSDate`**,
+`toFormat` / `toISODate` / `toISOTime` / `toISOWeekDate`, `plus`/`minus`/`set`,
+`diff`/`until`/`hasSame`, `startOf`/`endOf`, `toRelative`/`toObject`,
+`weekdayLong`/`monthLong`/`daysInMonth`, `equals`/`isValid`. `toJSDate()` returns a
+native `Date` for the same instant — the bridge to use when handing a Dataview date
+(`dv.date(...)`, `file.mtime`, a date-typed inline field) to non-Dataview code.
+
 `dv.pages()`/`dv.page()` return **DataArray**s / page objects with the full
 chainable surface:
 
@@ -177,6 +185,28 @@ Also available inside a block: `app` (partial `vscode`-mapped shim, §6),
 `setTimeout`/`setInterval` (+ clear variants, released when the job settles).
 `Promise`, `Map`, `Set`, `Intl`, `JSON`, `Math`, `Date`, `RegExp` come from the
 sandbox's own realm.
+
+`renderHeatmapCalendar(container, calendarData)` is a sandbox **global** too — the
+[Heatmap Calendar](https://github.com/Richardsl/heatmap-calendar-obsidian) plugin's
+dataviewjs helper — so existing snippets run unchanged:
+
+```js
+renderHeatmapCalendar(this.container, {
+  year: 2022,
+  colors: {orange: ["#ffa244", "#fd7f00", "#dd6f00", "#bf6000", "#9b4e00"]},
+  entries: [{date: "2022-01-01", intensity: 3, content: "🏋️", color: "orange"}],
+});
+```
+
+Accepted fields: `year` (default: current), `colors` (map of `name → [c0…c4]`, or a
+string → the built-in green scale), `entries` (`{date, intensity, color, content}`,
+filtered to `year`), `showCurrentDayBorder`, `defaultEntryIntensity` (4),
+`intensityScaleStart`/`End` (default: min/max entry intensity). Intensities map
+linearly onto the palette; `weekStartDay` is always Monday (upstream reads it from
+its plugin settings). Documented deviations: `container` is ignored (the sandbox has
+no DOM — the calendar renders into the block), a string `colors` falls back to the
+default palette instead of looking the name up in plugin settings, and the `today`
+border is only drawn when the rendered year **is** the current one.
 
 ## 5. Data index
 
@@ -242,6 +272,7 @@ repository like any other executable code in that workspace.
 | `dv.markdown()` / `dv.el(div, text)` render block markdown | Same: the preview's own markdown-it (`md.render`) renders that text, so fenced code, tables and lists inside it are highlighted/rendered like the document body. `dv.span`/`dv.paragraph`/`dv.header` stay **inline** markdown, because block constructs inside `<p>`/`<h1>` would be invalid HTML. |
 | Heading links (`#Heading`) jump to Obsidian's own anchor slug | Anchors are normalized GitHub-style (`#My   Heading!` → `#my-heading`) to match the ids VSCode's preview generates. Duplicate headings get `-1`/`-2` suffixes in VSCode; a link cannot know which duplicate it means, so that stays approximate. Block references (`#^id`) have no VSCode anchor and degrade to a file link. |
 | Dataview patches its own container in place | The built-in preview is re-rendered; the extension can only ask for a whole-document `markdown.preview.refresh`. Refreshes are coalesced (one per settled wave of blocks, ≥400 ms apart) and every block is served from the render cache on refresh, so no block re-executes twice for the same index version. |
+| — | **Scroll anchoring.** VSCode restores the preview scroll after a refresh by *progress* (`scrollY / documentHeight`) and then syncs the editor to whatever source line sits at the top. A block that resolves (placeholder → long table) changes the document height, so that progress lands on another line and the editor got scrolled/selected to it while typing. The injected preview script now records the top-most `data-line` block (plus the offset into it) on every scroll and restores that same source line after a swap — one animation-frame pass plus one 150 ms settle pass, before the preview client's 200 ms sync-suppression window elapses, so usually no sync message is sent at all. Need the editor to *never* follow the preview? Set `markdown.preview.scrollEditorWithPreview` to `false` (VSCode setting, applies to every Markdown file). |
 | Renders unlimited rows | `maxRows` (default 1000) per table/query, plus a 20 000-cell budget per block; both emit a visible notice. |
 | — | Tables with ≥100 rows additionally embed a pre-rendered payload; the preview script virtualizes them (60-row window, rAF-throttled). Task lists >120 items paginate with a “Show N more” button. Payload is capped at 3000 rows / 512 KB; beyond that the server-rendered (truncated) table is used as-is. |
 | Persisted index cache | Index is in-memory per window session, built lazily on the first dataview block. |

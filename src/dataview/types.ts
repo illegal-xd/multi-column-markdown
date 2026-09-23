@@ -99,6 +99,8 @@ export interface DvDate {
 	toFormat(fmt: string): string;
 	toISO(): string;
 	toMillis(): number;
+	/** Luxon bridge: the same instant as a native `Date` (DataviewJS passes these to other libraries). */
+	toJSDate(): Date;
 	plus(delta: DateDelta): DvDate;
 	minus(delta: DateDelta): DvDate;
 	startOf(unit: "second" | "minute" | "hour" | "day" | "week" | "month" | "year"): DvDate;
@@ -219,6 +221,18 @@ export interface ListItemNode {
 /** Back-compat alias: the render/dv task shape used to be called TaskNode. */
 export type TaskNode = ListItemNode;
 
+/** One day cell of a `heatmap` RenderOp (upstream Heatmap Calendar `<li>`). */
+export interface HeatmapBox {
+	/** Inline `background-color` (palette entry, or `transparent` for the leading blanks). */
+	color?: string;
+	/** `YYYY-MM-DD` for days that have an entry. */
+	date?: string;
+	/** Text drawn inside the box (emoji/short label). */
+	content?: string;
+	/** Upstream class markers: `month-<mon>`, `today`, `hasData` / `isEmpty`. */
+	classes: string[];
+}
+
 export type RenderOp =
 	| {kind: "table"; headers: string[]; rows: TableRow[]}
 	| {kind: "list"; items: CellValue[]; ordered?: boolean}
@@ -234,6 +248,12 @@ export type RenderOp =
 	| {kind: "empty"; message: string}
 	/** CALENDAR query output: date-grouped entries (rendered as a month-grouped list). */
 	| {kind: "calendar"; entries: Array<{date: string; link: Link; value?: CellValue}>}
+	/**
+	 * `renderHeatmapCalendar(...)`: a year grid of daily boxes (upstream Heatmap
+	 * Calendar markup). `boxes` holds the leading blanks plus one box per day;
+	 * `classes` carry upstream's `month-<mon>` / `today` / `hasData` / `isEmpty`.
+	 */
+	| {kind: "heatmap"; year: number; weekdays: string[]; boxes: HeatmapBox[]}
 	/** Result-count / timing badge (UX, opt-in via settings.showResultCount). */
 	| {kind: "badge"; text: string};
 

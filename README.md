@@ -226,6 +226,10 @@ Rating: `= this.rating` · `$= dv.pages("#project").length` files
   timeout that terminates and respawns the thread; one failing block never affects the rest of the document.
 - **Performance** — rendered blocks are cached by content hash + index version, preview refreshes are coalesced, and
   large tables/task lists are virtualized/paginated in the preview.
+- **Stable scroll** — refreshes re-anchor the preview to the `data-line` block that was at the top, so resolving a
+  block no longer scrolls the editor away while you type.
+- **Heatmap calendars** — the Heatmap Calendar plugin's `renderHeatmapCalendar(this.container, {...})` works as a
+  sandbox global (year grid, palettes, per-entry intensity/colour/content), rendered as native preview markup.
 - **Docs:** [usage, API surface & Obsidian differences](docs/dataview/README.md) ·
   [architecture](docs/dataview/architecture.md) · [performance report](docs/dataview/performance.md)
 

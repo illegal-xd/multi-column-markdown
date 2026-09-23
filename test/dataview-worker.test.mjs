@@ -113,6 +113,39 @@ test("dv.paragraph emits exactly one paragraph op", async () => {
   assert.deepEqual(r.ops, paragraph("hi"));
 });
 
+test("renderHeatmapCalendar is a sandbox global that emits a heatmap op", async () => {
+  // `this.container` is undefined inside the sandbox (no DOM) — the container
+  // argument must be ignored, exactly like the Heatmap Calendar plugin's calls.
+  const r = await run(`
+    renderHeatmapCalendar(this.container, {
+      year: 2022,
+      entries: [{date: "2022-03-01", intensity: 1, content: "x"}],
+    });
+    dv.paragraph("after");
+  `);
+  assert.equal(r.ok, true);
+  assert.equal(r.ops.length, 2);
+  const op = plain(r.ops[0]);
+  assert.equal(op.kind, "heatmap");
+  assert.equal(op.year, 2022);
+  assert.deepEqual(op.weekdays, ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+  assert.equal(op.boxes.length, 5 + 365);
+  const data = op.boxes.filter((b) => b.classes.includes("hasData"));
+  assert.deepEqual(data.map((b) => ({date: b.date, content: b.content, color: b.color})), [
+    {date: "2022-03-01", content: "x", color: "#196127"},
+  ]);
+  assert.deepEqual(plain(r.ops[1]), {kind: "paragraph", text: "after"});
+});
+
+test("renderHeatmapCalendar tolerates missing/foreign data without crashing", async () => {
+  const r = await run('renderHeatmapCalendar(null, {year: 2022, entries: [{date: "nope"}]})');
+  assert.equal(r.ok, true);
+  assert.equal(r.ops[0].kind, "heatmap");
+  // Leading blanks have no classes; every day box still carries its month class.
+  assert.equal(r.ops[0].boxes.filter((b) => !b.classes.some((c) => c.startsWith("month-"))).length, 5);
+  assert.equal(r.ops[0].boxes.filter((b) => b.classes.includes("hasData")).length, 0);
+});
+
 test("dv.table emits a table op whose cells are the CellValue union", async () => {
   const r = await run('dv.table(["a", "b"], [[1, 2]])');
   assert.equal(r.ok, true);

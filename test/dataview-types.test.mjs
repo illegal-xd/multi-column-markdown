@@ -124,6 +124,18 @@ test("duration: methods are non-enumerable — JSON/keys/clone/deepEqual unchang
 
 // ── DateTime ───────────────────────────────────────────────────────────────
 
+test("date: toJSDate bridges to a native Date for the same instant (luxon API)", () => {
+  const d = date("2024-01-31T10:20:30.400Z");
+  const js = d.toJSDate();
+  assert.equal(js instanceof Date, true);
+  assert.equal(js.getTime(), d.toMillis());
+  assert.equal(js.toISOString(), d.toISO());
+  // Round-trips with a Date the caller passes in (DataviewJS interop).
+  assert.equal(date(new Date(Date.UTC(2024, 0, 31))).toJSDate().toISOString(), "2024-01-31T00:00:00.000Z");
+  // Derived dates keep the bridge (and the instant arithmetic).
+  assert.equal(d.plus({days: 1}).toJSDate().getTime() - js.getTime(), 86400000);
+});
+
 test("date: endOf(unit) — docs example endOf('month') on Jan 31", () => {
   assert.equal(date("2024-01-31").endOf("month").toISO(), "2024-01-31T23:59:59.999Z");
   assert.equal(date("2024-06-15").endOf("year").toISO(), "2024-12-31T23:59:59.999Z");

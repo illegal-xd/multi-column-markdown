@@ -6,7 +6,10 @@
  * （tsconfig.json 的 lib 已包含 DOM；上面的 reference 只是让本文件独立编译时也成立。）
  * 输入是 host 侧 src/dataview/render/html.ts 产出的 v1 `data-dv-payload`（已 escapeHtml 的 JSON）。
  * 目的：1000+ 行表格 / 大量任务不进一次性 DOM —— 只挂载可视窗口/前若干块，避免长任务阻塞。
+ * 另见 `./anchor.ts`：refresh 会按「进度比例」恢复滚动位置，而 dataview 块撑高/缩短文档后
+ * 同一比例会落到别的源码行，预览→编辑器同步遂把编辑器滚走；该模块按源码行重新锚定。
  */
+import {installAnchorPreserver} from "./anchor";
 
 // ---------------------------------------------------------------------------
 // 常量（性能契约）
@@ -374,6 +377,7 @@ export function activateDataviewView(): void {
 		return;
 	}
 	scanAll();
+	installAnchorPreserver(window, document);
 	if (observer !== null) return; // 幂等：重复激活不重复 observe
 	// 老环境降级：无 MutationObserver 时仅保留一次性扫描。
 	if (typeof MutationObserver === "undefined") return;

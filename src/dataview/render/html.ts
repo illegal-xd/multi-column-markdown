@@ -5,7 +5,7 @@
  * (a) t:"html" / kind:"html" — trusted dv.html() output; the Webview CSP still backstops it —
  * and (b) results of opts.renderInline (host markdown renderer output).
  */
-import {escapeHtml} from "../../preview/htmlEscape";
+import {escapeAttr, escapeHtml} from "../../preview/htmlEscape";
 import type {CellValue, Link, RenderOp, TaskNode} from "../types";
 import {formatDurationMs} from "../values";
 
@@ -532,6 +532,38 @@ function renderCalendar(op: Extract<RenderOp, {kind: "calendar"}>, opts: RenderO
 	return wrap("calendar", "", inner);
 }
 
+/** Column header of the heatmap grid — upstream hardcodes the same 12 labels. */
+const HEATMAP_MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * `renderHeatmapCalendar` output. Markup + class names mirror the Obsidian
+ * Heatmap Calendar plugin (`.heatmap-calendar-graph|-year|-months|-days|-boxes|
+ * -content`) so the layout CSS and user snippets behave the same; the only
+ * addition is the `dataview-container` wrapper every op gets. Size is bounded by
+ * construction (≤ 6 leading blanks + 366 days), so no cell budget is consumed.
+ */
+function renderHeatmap(op: Extract<RenderOp, {kind: "heatmap"}>): string {
+	const months = HEATMAP_MONTH_LABELS.map((m) => `<li>${m}</li>`).join("");
+	const weekdays = op.weekdays.map((d) => `<li>${escapeHtml(d)}</li>`).join("");
+	const boxes = op.boxes
+		.map((box) => {
+			const cls = box.classes.length > 0 ? ` class="${escapeAttr(box.classes.join(" "))}"` : "";
+			const date = box.date === undefined ? "" : ` data-date="${escapeAttr(box.date)}"`;
+			const color = box.color === undefined ? "" : ` style="background-color: ${escapeAttr(box.color)}"`;
+			const content = box.content === undefined ? "" : escapeHtml(box.content);
+			return `<li${cls}${date}${color}><span class="heatmap-calendar-content">${content}</span></li>`;
+		})
+		.join("");
+	const inner =
+		`<div class="heatmap-calendar-graph">` +
+		`<div class="heatmap-calendar-year">${escapeHtml(String(op.year).slice(2))}</div>` +
+		`<ul class="heatmap-calendar-months">${months}</ul>` +
+		`<ul class="heatmap-calendar-days">${weekdays}</ul>` +
+		`<ul class="heatmap-calendar-boxes">${boxes}</ul>` +
+		`</div>`;
+	return wrap("heatmap", "", inner);
+}
+
 function renderOp(op: RenderOp, opts: RenderOptions, budget: CellBudget): string {
 	switch (op.kind) {
 		case "table":
@@ -565,6 +597,8 @@ function renderOp(op: RenderOp, opts: RenderOptions, budget: CellBudget): string
 			return wrap("empty", "", `<div class="dataview-empty">${escapeHtml(op.message)}</div>`);
 		case "calendar":
 			return renderCalendar(op, opts, budget);
+		case "heatmap":
+			return renderHeatmap(op);
 		case "badge":
 			return wrap("badge", "", `<div class="dataview-badge">${escapeHtml(op.text)}</div>`);
 	}
