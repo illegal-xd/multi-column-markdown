@@ -228,10 +228,15 @@ Rating: `= this.rating` · `$= dv.pages("#project").length` files
   their turn, and each finished batch refreshes the preview instead of blocking the document until the last block.
 - **Performance** — rendered blocks are cached by content hash + index version, preview refreshes are coalesced, and
   large tables/task lists are virtualized/paginated in the preview.
-- **Stable scroll** — refreshes re-anchor the preview to the `data-line` block that was at the top, so resolving a
-  block no longer scrolls the editor away while you type.
+- **Stable scroll, editor-safe** — refreshes re-anchor the preview to the `data-line` block that was at the top, and the
+  injected script swallows those programmatic scrolls (capture phase) so the preview→editor sync hears nothing and the
+  editor never jumps while you type.
 - **Heatmap calendars** — the Heatmap Calendar plugin's `renderHeatmapCalendar(this.container, {...})` works as a
   sandbox global (year grid, palettes, per-entry intensity/colour/content), rendered as native preview markup.
+- **Moment-compatible `moment()`** — Obsidian ships Moment app-wide, so `moment("2024-01-15").add(1, "month").format("YYYY-MM-DD")`
+  works in `dataviewjs` blocks and inline `$=` queries: parsing (date-only → local midnight, like Moment), Moment-token formatting,
+  clamping arithmetic, `startOf`/`endOf`, comparisons, `diff`, relative/`calendar` strings, durations, and local/UTC/fixed offsets
+  (English locale only).
 - **Docs:** [usage, API surface & Obsidian differences](docs/dataview/README.md) ·
   [architecture](docs/dataview/architecture.md) · [performance report](docs/dataview/performance.md)
 

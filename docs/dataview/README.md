@@ -186,10 +186,10 @@ fields (`t.due`, …) and nested `children`/`subtasks`.
 
 Also available inside a block: `app` (partial `vscode`-mapped shim, §6),
 `input` (the block's raw source), `console` (forwarded to the output channel),
-`setTimeout`/`setInterval` (+ clear variants, released when the job settles).
+`setTimeout`/`setInterval` (+ clear variants, released when the job settles),
+`renderHeatmapCalendar` and `moment` (sandbox globals, below).
 `Promise`, `Map`, `Set`, `Intl`, `JSON`, `Math`, `Date`, `RegExp` come from the
 sandbox's own realm.
-
 `renderHeatmapCalendar(container, calendarData)` is a sandbox **global** too — the
 [Heatmap Calendar](https://github.com/Richardsl/heatmap-calendar-obsidian) plugin's
 dataviewjs helper — so existing snippets run unchanged:
@@ -211,6 +211,39 @@ its plugin settings). Documented deviations: `container` is ignored (the sandbox
 no DOM — the calendar renders into the block), a string `colors` falls back to the
 default palette instead of looking the name up in plugin settings, and the `today`
 border is only drawn when the rendered year **is** the current one.
+
+`moment(...)` is a sandbox **global** as well: Obsidian ships Moment app-wide
+(`obsidian.d.ts` exports it), so dataviewjs snippets that talk dates through it
+run unchanged:
+
+```js
+dv.paragraph(moment("2024-01-15").add(1, "month").format("YYYY-MM-DD")); // 2024-02-15
+dv.paragraph(moment(dv.date("2024-01-15")).format("dddd"));              // Monday
+dv.paragraph(moment("2024-01-31").add(1, "month").format("YYYY-MM-DD")); // 2024-02-29 (clamped)
+```
+
+Covered: parsing (ISO strings — with a **date-only string read as local midnight**,
+like Moment and unlike `Date.parse` — epoch ms, `Date`, `dv.date(...)` values,
+arrays/objects, `moment(str, format)`), Moment-token formatting (`YYYY-MM-DD`,
+`Do`, `dddd`, `[literal]`, `\escape`, and the localized `LT`/`L`/`LL`/`lll`/…),
+arithmetic with Moment's clamping, `startOf`/`endOf`, field accessors/setters,
+unit-scoped comparisons, `diff`, `fromNow`/`toNow`/`from`/`to`/`calendar`,
+`utc`/`local`/`utcOffset`/`parseZone`, statics (`moment.utc`, `moment.unix`,
+`moment.min/max`, `moment.duration`, `moment.months()/weekdays()`,
+`moment.locale()` → `"en"`) and durations. **Modifiers mutate the receiver and
+return it, exactly like Moment** (`const m = moment(); m.add(1, "day")` changes
+`m`); use `clone()` when you need to keep the original. `min`/`max` additionally
+accept date strings, which Moment.js does not.
+
+**Not** covered (there is no Moment.js in the bundle — this is a zero-dependency
+facade, so the gaps are explicit): English is the only locale (no locale data
+files, `moment.locale("xx")` does not switch anything), no formatting plugins
+(`moment-precise-range`, …), no IANA timezone database (local zone, UTC and fixed
+numeric offsets only), and `diff(unit, true)` is exact below a month — the
+month/quarter/year fraction is derived from the day difference. **Token sets
+differ from Dataview's own date type**: `moment(x).format("YYYY-MM-DD")` is Moment
+syntax, while `dv.date(x).toFormat("yyyy-MM-dd")` (and DQL's `dateformat`) is
+Luxon syntax.
 
 ## 5. Data index
 
@@ -263,6 +296,8 @@ repository like any other executable code in that workspace.
 | `input` as a DOM container | See below: `input` here is the block's source text, so `dv.el(tag, text, {container: input})` does not apply. |
 | `app` object | Partial shim only: `vault.getAbstractFileByPath/read/getFiles`, `metadataCache.getFileCache`, `workspace.getActiveFile`. No `TFolder` tree, no `resolvedLinks`, no attachment/media handling, no `app.plugins`. |
 | `dv.io.load()` markdown rendering | Returns the **raw file text**, not rendered markdown. |
+| Full Moment.js (`moment`) | The bundled `moment` is a **zero-dependency facade** (§4), not Moment.js: English-only locale data (no locale data files, `moment.locale("xx")` changes nothing), no formatting plugins, no IANA timezone database (local zone + UTC + fixed numeric offsets only), and the `week`/`isoWeek` setters move in whole weeks instead of Moment's week-year arithmetic. It is a sandbox **global**, matching Obsidian — `dv.moment` does not exist there either, and there is no `window` in the sandbox. Cross-checked against `moment@2.29.4` (`test/tools/moment-parity.mjs`). |
+| Luxon token set in `moment` | `moment(...).format(...)` takes **Moment** tokens (`YYYY-MM-DD`, `Do`, `dddd`); Dataview's own dates take **Luxon** tokens (`dv.date(x).toFormat("yyyy-MM-dd")`, DQL `dateformat`). Both work here — they are different formatters, so mixing the two token styles silently mis-formats. |
 | `input` | Here it is the block's **source string** (per this project's contract), not a DOM container. Code doing `input.innerHTML = …` will not work — use `dv.*`. |
 | Clickable task checkboxes | Dataview task checkboxes render **disabled**: toggling writes to files and is out of scope. |
 | DQL lambdas | Supported: `(x) => x.field` and the `x => x.field` short form, with closure over the surrounding scope. |
@@ -277,7 +312,7 @@ repository like any other executable code in that workspace.
 | `dv.markdown()` / `dv.el(div, text)` render block markdown | Same: the preview's own markdown-it (`md.render`) renders that text, so fenced code, tables and lists inside it are highlighted/rendered like the document body. `dv.span`/`dv.paragraph`/`dv.header` stay **inline** markdown, because block constructs inside `<p>`/`<h1>` would be invalid HTML. |
 | Heading links (`#Heading`) jump to Obsidian's own anchor slug | Anchors are normalized GitHub-style (`#My   Heading!` → `#my-heading`) to match the ids VSCode's preview generates. Duplicate headings get `-1`/`-2` suffixes in VSCode; a link cannot know which duplicate it means, so that stays approximate. Block references (`#^id`) have no VSCode anchor and degrade to a file link. |
 | Dataview patches its own container in place | The built-in preview is re-rendered; the extension can only ask for a whole-document `markdown.preview.refresh`. Refreshes are coalesced (one per settled wave of blocks, ≥400 ms apart) and every block is served from the render cache on refresh, so no block re-executes twice for the same index version. |
-| — | **Scroll anchoring.** VSCode restores the preview scroll after a refresh by *progress* (`scrollY / documentHeight`) and then syncs the editor to whatever source line sits at the top. A block that resolves (placeholder → long table) changes the document height, so that progress lands on another line and the editor got scrolled/selected to it while typing. The injected preview script now records the top-most `data-line` block (plus the offset into it) on every scroll and restores that same source line after a swap — one animation-frame pass plus one 150 ms settle pass, before the preview client's 200 ms sync-suppression window elapses, so usually no sync message is sent at all. Need the editor to *never* follow the preview? Set `markdown.preview.scrollEditorWithPreview` to `false` (VSCode setting, applies to every Markdown file). |
+| — | **Scroll anchoring + edit guard.** The preview client has **no** scroll restore for content updates: it keeps `scrollY` while the morphed document changes height (so the top source line drifts), and it reports *every* scroll event to the host — which then scrolls the editor to whatever line is at the top of the preview (`revealRange(…, AtTop)`, gated by `markdown.preview.scrollEditorWithPreview`, default true). With a long editor the two positions disagree by hundreds of lines, which is why typing used to yank the editor around. The injected script now (1) records the top-most `data-line` block (plus its offset) on every scroll and restores that same source line after a swap (animation-frame + 150 ms settle pass), and (2) **swallows the resulting scroll events in the capture phase** for ~350 ms after each content update, so the host never hears about them and cannot move the editor. The preview→editor sync resumes after the window; the editor is only ever moved by an actual, later user scroll. Need a hard guarantee? Set `markdown.preview.scrollEditorWithPreview` to `false` (VSCode setting, applies to every Markdown file). |
 | Renders unlimited rows | `maxRows` (default 1000) per table/query, plus a 20 000-cell budget per block; both emit a visible notice. |
 | — | Tables with ≥100 rows additionally embed a pre-rendered payload; the preview script virtualizes them (60-row window, rAF-throttled). Task lists >120 items paginate with a “Show N more” button. Payload is capped at 3000 rows / 512 KB; beyond that the server-rendered (truncated) table is used as-is. |
 | Persisted index cache | Index is in-memory per window session, built lazily on the first dataview block. |
