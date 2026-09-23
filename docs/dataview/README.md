@@ -7,7 +7,7 @@ and no Obsidian runtime: the index, query engine, `dv` API, renderer and sandbox
 are implemented in this repository and mapped onto VSCode's workspace/webview
 APIs.
 
-Verified against: `0.5.0` + Dataview subsystem (Step C integration).
+Verified against: `0.5.1` + Dataview subsystem (Step C integration).
 
 ---
 
