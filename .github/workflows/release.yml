@@ -38,9 +38,18 @@ jobs:
       - name: Generate release notes from commits
         id: notes
         run: |
-          LAST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
           VERSION="$(node -p "require('./package.json').version")"
-          if [[ -n "$LAST_TAG" && "$LAST_TAG" != "v${VERSION}" ]]; then
+          # On a tag push HEAD *is* the tag, so `git describe --tags --abbrev=0`
+          # would return v${VERSION} itself and the range would collapse to "" —
+          # which listed the whole history in the release body. Describe the
+          # parent commit instead; workflow_dispatch keeps HEAD.
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            BASE="HEAD^"
+          else
+            BASE="HEAD"
+          fi
+          LAST_TAG="$(git describe --tags --abbrev=0 "$BASE" 2>/dev/null || true)"
+          if [[ -n "$LAST_TAG" ]]; then
             RANGE="${LAST_TAG}..HEAD"
           else
             RANGE=""
