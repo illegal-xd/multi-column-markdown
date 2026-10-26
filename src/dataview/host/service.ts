@@ -93,6 +93,12 @@ export interface DataviewServiceDeps {
 	poolSize?: number;
 	/** Rendered block cache entries. Default 500. */
 	cacheSize?: number;
+	/**
+	 * Rendered HTML retained by the block cache, in characters. Default 24M.
+	 * Entry counting alone cannot bound this cache: one cached table/heatmap can
+	 * be megabytes, so 500 entries is potentially hundreds of MB.
+	 */
+	cacheMaxChars?: number;
 	/** Coalescing window before a refresh may run. Default 120ms. */
 	refreshDebounceMs?: number;
 	/** Minimum spacing between two refreshes. Default 400ms. */
@@ -133,6 +139,8 @@ const DEFAULT_MAX_ROWS = 1000;
  */
 const DEFAULT_POOL_SIZE = 3;
 const DEFAULT_CACHE_SIZE = 500;
+/** Retained rendered HTML (chars). Bounds the cache independently of entry count. */
+const DEFAULT_CACHE_MAX_CHARS = 24 * 1024 * 1024;
 const DEFAULT_REFRESH_DEBOUNCE_MS = 120;
 const DEFAULT_REFRESH_MIN_INTERVAL_MS = 400;
 /**
@@ -155,7 +163,12 @@ interface PendingWave {
 export function createDataviewService(deps: DataviewServiceDeps): DataviewService {
 	const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 	const maxRows = deps.maxRows ?? DEFAULT_MAX_ROWS;
-	const cache = new LruCache<string, BlockState>(deps.cacheSize ?? DEFAULT_CACHE_SIZE);
+	const cache = new LruCache<string, BlockState>(deps.cacheSize ?? DEFAULT_CACHE_SIZE, {
+		maxWeight: deps.cacheMaxChars ?? DEFAULT_CACHE_MAX_CHARS,
+		// The HTML string dominates the retained size; the fixed term accounts
+		// for the entry itself (key, status, object header).
+		weigh: (state) => state.html.length + 128,
+	});
 	const log = deps.log ?? ((level, message) => {
 		if (level === "error") console.error("[dataview]", message);
 		else if (level === "warn") console.warn("[dataview]", message);

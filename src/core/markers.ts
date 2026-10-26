@@ -54,6 +54,28 @@ export function fencedLineMask(lines: ReadonlyArray<string>): boolean[] {
 }
 
 /**
+ * Cheap negative test for the block ruler's hot path: does the line in
+ * `src[start, end)` begin (after leading spaces/tabs) with the `%%` marker
+ * delimiter? Only such a line can carry a column marker, so the caller can
+ * bail out without materialising the line or the remaining document.
+ *
+ * Deliberately allocation-free: this runs at every block start of every
+ * preview render, and an O(remaining lines) check there made parsing
+ * quadratic in document length (measured: +169ms on a 3200-line document).
+ */
+export function hasMarkerPrefix(src: string, start: number | undefined, end: number | undefined): boolean {
+	if (start === undefined || end === undefined) return false;
+	let i = start;
+	while (i < end) {
+		const code = src.charCodeAt(i);
+		if (code !== 0x20 /* space */ && code !== 0x09 /* tab */) break;
+		i += 1;
+	}
+	if (i + 1 >= end) return false;
+	return src.charCodeAt(i) === 0x25 /* % */ && src.charCodeAt(i + 1) === 0x25;
+}
+
+/**
  * Index of the `%% col-end %%` that closes the region opened at `startIndex`,
  * or -1 when unclosed (or beyond `maxIndex`, exclusive).
  *

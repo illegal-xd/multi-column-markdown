@@ -38,6 +38,7 @@ export interface MarkdownItLike {
 				anchorName: string,
 				ruleName: string,
 				rule: (state: BlockRuleState, startLine: number, endLine: number, silent: boolean) => boolean,
+				options?: {alt?: string[]},
 			): void;
 		};
 	};

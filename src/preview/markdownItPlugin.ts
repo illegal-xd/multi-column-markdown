@@ -23,7 +23,7 @@
  *   - `preview/wikilinks.ts` / `preview/embed.ts` / `preview/taskLists.ts`
  */
 import type MarkdownIt from "markdown-it";
-import {START_RE, fencedLineMask, findRegionEnd, markerLineAt} from "../core/markers";
+import {START_RE, fencedLineMask, findRegionEnd, hasMarkerPrefix, markerLineAt} from "../core/markers";
 import {blockLines, type BlockRuleState, type MarkdownItLike} from "./markdownItTypes";
 import {PASSTHROUGH_ENV_KEY, renderColumns} from "./columnsRenderer";
 import {installTaskLists} from "./taskLists";
@@ -31,12 +31,18 @@ import {installWikilinkInline} from "./wikilinks";
 
 const installedMarkdownIt = new WeakSet<object>();
 
+/** Diagnostics: per-instance column HTML cache counters (see `columnHtmlCache`). */
+export {getColumnHtmlCacheStats} from "./columnHtmlCache";
+
 export function installColumnsMarkdownItPlugin(md: MarkdownIt): void {
 	if (installedMarkdownIt.has(md)) return;
 	installedMarkdownIt.add(md);
 
 	const m = md as unknown as MarkdownItLike;
-	m.block.ruler.before("paragraph", "amc_columns", columnsBlockRule);
+	// `alt: ["paragraph"]` puts the rule on the paragraph terminator chain as
+	// well: without it the paragraph rule never probes this ruler, so a marker
+	// line directly after a paragraph line was swallowed into that paragraph.
+	m.block.ruler.before("paragraph", "amc_columns", columnsBlockRule, {alt: ["paragraph"]});
 	m.renderer.rules["amc_columns"] = createColumnsRenderer(md);
 
 	installWikilinkInline(md);
@@ -55,15 +61,27 @@ function columnsBlockRule(
 	silent: boolean,
 ): boolean {
 	if (state.env?.[PASSTHROUGH_ENV_KEY]) return false;
+	// O(1) negative gate: this rule runs at every block start of the document,
+	// so slicing the remaining lines (below) unconditionally made parsing
+	// quadratic in document length. Only a line whose first non-space chars are
+	// `%%` can be a column marker — everything else bails out here.
+	if (!hasMarkerPrefix(state.src, state.bMarks[startLine], state.eMarks[startLine])) return false;
 
 	const lines = blockLines(state, startLine, endLine);
 	const fenced = fencedLineMask(lines);
 	const first = markerLineAt(lines, fenced, 0);
 	if (first === null || !START_RE.test(first)) return false;
-	if (silent) return false;
 
 	const endIndex = findRegionEnd(lines, fenced, 0);
 	if (endIndex < 0) return false; // unclosed — leave as plain text
+	// `silent` is markdown-it's terminator probe (the paragraph rule asks every
+	// ruler "does a block start on this line?"). Answering false here made a
+	// `%% col-start %%` line directly after a paragraph line get swallowed as
+	// paragraph text — the region then rendered as literal markers in the
+	// preview while the structural parser still treated it as a region. Only a
+	// *closed* region claims the line, so malformed blocks keep their current
+	// all-text rendering.
+	if (silent) return true;
 
 	const token = state.push("amc_columns", "", 0);
 	token.content = state.getLines(startLine, startLine + endIndex + 1, state.blkIndent, false);
@@ -75,6 +93,8 @@ function columnsBlockRule(
 function createColumnsRenderer(md: MarkdownIt): MarkdownItLike["renderer"]["rules"][string] {
 	return (tokens, idx, _options, env) => {
 		const depth = (env as {amcDepth?: number} | undefined)?.amcDepth ?? 0;
-		return renderColumns(tokens[idx]!.content, md, env, depth);
+		// `token.map[0]` is the region's first line in the current render scope
+		// (the document at the top level, a column's content when nested).
+		return renderColumns(tokens[idx]!.content, md, env, depth, tokens[idx]!.map?.[0] ?? 0);
 	};
 }

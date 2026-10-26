@@ -549,8 +549,21 @@ test("cached regions are immutable and self-reporting", () => {
   assert.ok(after.size >= 1);
 });
 
-// ── Style token table ──
+test("region cache keys by content fingerprint, not by retained text", () => {
+  clearRegionCache();
+  const head = "%% col-start %%\n%% col-break %%\n";
+  const tail = "\n%% col-end %%";
+  const withA = `${head}A${tail}`;
+  const withB = `${head}B${tail}`; // same length, same head/tail
+  const regionsA = findColumnRegions(withA);
+  const regionsB = findColumnRegions(withB);
+  assert.equal(regionsA[0].columns[0].content, "A");
+  assert.equal(regionsB[0].columns[0].content, "B", "middle-of-document differences never alias");
+  assert.equal(findColumnRegions(withA), regionsA, "each document keeps its own entry");
+  assert.equal(findColumnRegions(withB), regionsB);
+});
 
+// ── Style token table ──
 test("unknown style tokens are ignored without affecting known ones", () => {
   const doc = "%% col-start %%\n%% col-break:future:1,b:secondary %%\nA\n%% col-end %%";
   const s = findColumnRegions(doc)[0].columns[0].style ?? {};

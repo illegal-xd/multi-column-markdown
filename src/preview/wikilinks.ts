@@ -8,6 +8,7 @@
  */
 import type MarkdownIt from "markdown-it";
 import {isMarkdownTarget, parseWikilinkTarget, wikilinkFragment} from "../core/wikilink";
+import {markDynamicContent} from "./renderScope";
 import {escapeAttr, escapeHtml} from "./htmlEscape";
 import {renderMarkdownEmbed} from "./embed";
 import type {InlineRuleState, MarkdownItLike, RenderToken} from "./markdownItTypes";
@@ -67,6 +68,9 @@ export function installWikilinkInline(md: MarkdownIt): void {
 		const t = tokens[idx]!;
 		const src = t.attrGet("src") ?? "";
 		if (t.attrGet("data-amc-markdown") === "true") {
+			// The output depends on the *target* file (and on whether it resolves
+			// at all), not on this text: never reuse a cached column render.
+			markDynamicContent(env);
 			const embedded = renderMarkdownEmbed(md, src.split("#", 1)[0]!, env);
 			if (embedded !== null) return embedded;
 		}

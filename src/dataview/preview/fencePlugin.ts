@@ -19,6 +19,7 @@
  * and must stay unit-testable.
  */
 import type MarkdownIt from "markdown-it";
+import {markDynamicContent} from "../../preview/renderScope";
 import {escapeHtml} from "../../preview/htmlEscape";
 import type {MarkdownItLike} from "../../preview/markdownItTypes";
 import type {BlockResultProvider, BlockState, DataviewRenderEnv} from "../types";
@@ -85,6 +86,10 @@ export function installDataviewFences(md: MarkdownIt, opts: DataviewFenceOptions
 		if (!FENCE_LANGS.has(lang)) {
 			return prev ? prev(tokens, idx, options, env, self) : defaultFenceHtml(token);
 		}
+		// Mark before the enabled gate: toggling the setting changes the output
+		// without changing the source text, so the column HTML cache must not
+		// reuse a result produced while the gate was in the other position.
+		markDynamicContent(env);
 		if (opts.isEnabled && !opts.isEnabled()) {
 			return prev ? prev(tokens, idx, options, env, self) : defaultFenceHtml(token);
 		}
@@ -133,7 +138,6 @@ export function installDataviewInlines(md: MarkdownIt, opts: DataviewInlineOptio
 		const token = tokens[idx];
 		if (!token) return "";
 		const fallback = (): string => (prev ? prev(tokens, idx, options, env, self) : defaultCodeInlineHtml(token));
-		if (opts.isEnabled && !opts.isEnabled()) return fallback();
 		if (!opts.provider.getInline) return fallback();
 
 		const jsPrefix = opts.jsInlinePrefix?.() ?? DEFAULT_JS_INLINE_PREFIX;
@@ -150,6 +154,11 @@ export function installDataviewInlines(md: MarkdownIt, opts: DataviewInlineOptio
 		} else {
 			return fallback();
 		}
+		// Marked before the gate and before the empty-payload check: the setting
+		// is not part of the source text, so a cached column would otherwise keep
+		// the output of the other gate position.
+		markDynamicContent(env);
+		if (opts.isEnabled && !opts.isEnabled()) return fallback();
 		// `=` alone (or `$=` alone) is not a query — upstream leaves it literal.
 		if (code === "") return fallback();
 

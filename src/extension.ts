@@ -18,6 +18,7 @@ import {registerCommands, setDataviewStatsHandler} from "./commands";
 import {registerWikilinkCompletion} from "./completion";
 import {installColumnsMarkdownItPlugin} from "./preview/markdownItPlugin";
 import {createDataviewRuntime, readDataviewSettings, type DataviewRuntime} from "./dataview/host/runtime";
+import {clearRegionCache} from "./core/parser";
 import {installDataviewFences, installDataviewInlines} from "./dataview/preview/fencePlugin";
 
 let dataviewRuntime: DataviewRuntime | undefined;
@@ -27,6 +28,15 @@ export function activate(context: vscode.ExtensionContext): {
 } {
 	registerCommands(context);
 	registerWikilinkCompletion(context);
+
+	// The region cache is keyed by document text, so entries for a closed
+	// document are unreachable weight. Dropping the (bounded) cache on close is
+	// cheaper than tracking individual documents across two extension hosts.
+	// Guarded: the markdown preview host is not required to expose the event.
+	const onClose = vscode.workspace.onDidCloseTextDocument;
+	if (typeof onClose === "function") {
+		context.subscriptions.push(onClose(() => clearRegionCache()));
+	}
 
 	dataviewRuntime = createDataviewRuntime(context);
 	// The command itself is registered in commands.ts (command ids have a single

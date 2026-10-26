@@ -383,6 +383,31 @@ test("lru: recency refresh, eviction order, hitStats", () => {
   assert.throws(() => new LruCache(1.5), /capacity/);
 });
 
+test("lru: a weight ceiling bounds retained size independently of entry count", () => {
+  const c = new LruCache(100, {maxWeight: 100, weigh: (v) => v.length});
+  c.set("small", "x".repeat(40));
+  c.set("big", "y".repeat(80));
+  assert.equal(c.hitStats().weight, 80, "the 40-char entry was evicted to stay under the ceiling");
+  // The 40-char entry was evicted to stay under the ceiling.
+  assert.equal(c.get("small"), undefined);
+  assert.equal(c.get("big"), "y".repeat(80));
+  assert.equal(c.hitStats().maxWeight, 100);
+
+  // Replacing a key must not double count its weight.
+  c.set("big", "z".repeat(30));
+  assert.equal(c.hitStats().weight, 30);
+  assert.equal(c.size, 1);
+
+  // A single entry larger than the ceiling is still kept (never a cache of nothing).
+  c.set("huge", "h".repeat(500));
+  assert.equal(c.size, 1);
+  assert.equal(c.get("huge").length, 500);
+
+  c.delete("huge");
+  assert.equal(c.hitStats().weight, 0);
+  assert.throws(() => new LruCache(2, {maxWeight: 10}), /weigher/);
+});
+
 test("hashKey: stable, 16 hex chars, part-boundary safe", () => {
   const a = hashKey("notes/a.md", 12);
   assert.equal(a, hashKey("notes/a.md", 12));
