@@ -35,7 +35,7 @@ block is done.
 | Setting | Default | Meaning |
 |---|---|---|
 | `multiColumnMarkdown.dataview.enabled` | `true` | Render `dataview`/`dataviewjs` fences at all. |
-| `multiColumnMarkdown.dataview.timeoutMs` | `5000` | Per-block budget. On expiry the worker thread is **terminated** and respawned; the block shows an error, other blocks are unaffected. |
+| `multiColumnMarkdown.dataview.timeoutMs` | `5000` | Per-block budget. On expiry the worker thread is **terminated** and respawned; the block falls back to showing its own fence source (see §2.1), other blocks are unaffected. |
 | `multiColumnMarkdown.dataview.maxRows` | `1000` | Rows per table/query before truncation (a notice is emitted). |
 | `multiColumnMarkdown.dataview.workerPoolSize` | `3` | Sandbox threads (one running block per thread). At most **3 blocks of the same file run at once** — the rest queue as a task queue and start as slots free up; extra threads help when several files are previewed at once. |
 | `multiColumnMarkdown.dataview.cacheSize` | `500` | LRU entries of rendered blocks (key includes index version). |
@@ -47,6 +47,22 @@ block is done.
 | `multiColumnMarkdown.dataview.inlineQueries` | `true` | Render inline `` `= …` `` / `` `$= …` `` spans at all. |
 | `multiColumnMarkdown.dataview.inlinePrefix` | `=` | DQL inline prefix (upstream `inlinePrefix`). |
 | `multiColumnMarkdown.dataview.jsInlinePrefix` | `$=` | JS inline prefix (upstream `jsInlinePrefix`). |
+
+### 2.1 Failure policy
+
+A block that cannot be rendered never turns into an error box in the preview:
+
+* a `dataview` / `dataviewjs` fence that fails (JS exception, timeout, rejected
+  job, worker/runtime unavailable) is rendered by the built-in fence renderer —
+  the author sees the original fenced code block, exactly as if the plugin were
+  not installed;
+* a failing inline query is rendered as the original code span;
+* a column region that cannot be laid out falls back to plain Markdown, and a
+  failed `![[embed]]` renders as the reference text as written.
+
+Diagnostics stay available outside the document: failures go to the extension
+host console (`[amc] …`, one line per distinct failure), the Dataview service
+logs each block failure with path and line, and `Dataview: Stats` counts them.
 
 ## 3. Supported block syntax
 
@@ -90,9 +106,9 @@ Today is `= this.file.mtime` and 2 + 3 = `$= 2 + 3`.
   with the same rules as a table cell.
 * Execution context is the containing note (`this`/`file`), so
   `` `= this.rating` `` works like it does inside a `dataview` block.
-* Inline results use the same worker pool, timeout, cache and error isolation as
-  code blocks; a failing inline query renders an inline error and the sentence
-  around it keeps rendering.
+* Inline results use the same worker pool, timeout, cache and failure policy as
+  code blocks; a failing inline query renders as the original code span and the
+  sentence around it keeps rendering.
 * A code span that is not prefixed (`npm run build`), an empty one (`` `=` ``),
   or inline code inside a fenced block is left untouched.
 
@@ -250,6 +266,16 @@ Luxon syntax.
 Per page: frontmatter (YAML subset), inline fields, headings/sections nested
 lists, tasks (nested, with tags + inline fields), outlinks/inlinks, `#tags` +
 expanded parent tags, aliases, size/mtime.
+
+The frontmatter parser is a zero-dependency subset (scalars, flow collections,
+block sequences/maps, `|` / `>` block scalars, multi-line plain scalars). It is
+**tolerant on purpose**: if a note's block is not valid for the subset, the
+offending lines are dropped and every field that does parse is kept — one bad
+line never costs you the tags or the metadata a query filters on. Nothing is
+reported in the preview; a recovered block is logged once as
+`[dataview/frontmatter] <path>: <reason>` in the extension host console. If your
+editor's YAML checker flags the same block, the note itself is invalid YAML —
+fix it there, the index just stops depending on it.
 
 Inline field syntaxes verified by test:
 

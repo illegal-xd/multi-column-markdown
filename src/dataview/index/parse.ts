@@ -38,7 +38,7 @@ import {
 	pathMeta,
 	stripInlineCode,
 } from "./text";
-import {parseYamlValue} from "./yaml";
+import {parseYamlTolerant} from "./yaml";
 
 const TASK_RE = /^(\s*)([-*+])\s+\[([^\[\]]*)\](?:\s+(.*))?$/;
 const LIST_RE = /^(\s*)([-*+])\s+(.*)$/;
@@ -47,18 +47,35 @@ const FENCE_RE = /^\s*(`{3,}|~{3,})\s*(.*)$/;
 /** Trailing `^block-id` (Obsidian block reference). */
 const BLOCK_ID_RE = /\s+\^([A-Za-z0-9-]+)\s*$/;
 
+/** One console line per (file, problem): malformed frontmatter is recovered, not reported. */
+const warnedFrontmatter = new Set<string>();
+
+function warnFrontmatter(path: string, problem: string): void {
+	if (warnedFrontmatter.size > 32) warnedFrontmatter.clear();
+	const key = `${path}\u0000${problem}`;
+	if (warnedFrontmatter.has(key)) return;
+	warnedFrontmatter.add(key);
+	console.warn(`[dataview/frontmatter] ${path}: ${problem} — recovered the readable fields`);
+}
+
 /**
- * Frontmatter = first-line `---` to next `---`. Parse failure or non-map YAML
- * → raw=null (caller stores {}); body always starts after a closed block.
+ * Frontmatter = first-line `---` to next `---`. The body always starts after a
+ * closed block. A block that is not valid for our YAML subset is parsed
+ * tolerantly (the offending lines are dropped, everything readable survives) —
+ * losing tags/aliases/fields wholesale because of one stray line makes queries
+ * on that note silently wrong. `error` is diagnostics only.
  */
-function splitFrontmatter(lines: string[]): {raw: Record<string, JsonValue> | null; bodyStart: number} {
+function splitFrontmatter(lines: string[]): {
+	raw: Record<string, JsonValue> | null;
+	bodyStart: number;
+	error?: string;
+} {
 	if (lines.length >= 2 && /^---\s*$/.test(lines[0])) {
 		for (let j = 1; j < lines.length; j++) {
 			if (/^---\s*$/.test(lines[j])) {
-				const res = parseYamlValue(lines.slice(1, j).join("\n"));
+				const res = parseYamlTolerant(lines.slice(1, j).join("\n"));
 				const bodyStart = j + 1;
-				if (!res.error && isPlainObject(res.value)) return {raw: res.value, bodyStart};
-				return {raw: null, bodyStart};
+				return {raw: isPlainObject(res.value) ? res.value : null, bodyStart, error: res.recovered};
 			}
 		}
 	}
@@ -96,7 +113,8 @@ function toPlainItem(node: InProgressItem): ListMeta {
 /** Pure, exception-free page parser. `ctime` is unavailable → equals mtime. */
 export function parsePageFile(path: string, content: string, mtime: number, size: number): PageMeta {
 	const lines = content.split(/\r?\n/);
-	const {raw, bodyStart} = splitFrontmatter(lines);
+	const {raw, bodyStart, error: frontmatterError} = splitFrontmatter(lines);
+	if (frontmatterError !== undefined) warnFrontmatter(path, frontmatterError);
 
 	let frontmatter: Record<string, JsonValue> = {};
 	let fmTags: string[] = [];

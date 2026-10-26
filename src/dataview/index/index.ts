@@ -7,5 +7,5 @@
  */
 export {parsePageFile} from "./parse";
 export {createIndexStore} from "./store";
-export {parseYamlValue} from "./yaml";
+export {parseYamlTolerant, parseYamlValue} from "./yaml";
 export type {YamlParseResult} from "./yaml";
