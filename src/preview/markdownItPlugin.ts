@@ -26,6 +26,7 @@ import type MarkdownIt from "markdown-it";
 import {START_RE, fencedLineMask, findRegionEnd, hasMarkerPrefix, markerLineAt} from "../core/markers";
 import {blockLines, type BlockRuleState, type MarkdownItLike} from "./markdownItTypes";
 import {PASSTHROUGH_ENV_KEY, renderColumns} from "./columnsRenderer";
+import {logRenderFailure} from "./renderLog";
 import {installTaskLists} from "./taskLists";
 import {installWikilinkInline} from "./wikilinks";
 
@@ -67,13 +68,8 @@ function columnsBlockRule(
 	// `%%` can be a column marker — everything else bails out here.
 	if (!hasMarkerPrefix(state.src, state.bMarks[startLine], state.eMarks[startLine])) return false;
 
-	const lines = blockLines(state, startLine, endLine);
-	const fenced = fencedLineMask(lines);
-	const first = markerLineAt(lines, fenced, 0);
-	if (first === null || !START_RE.test(first)) return false;
-
-	const endIndex = findRegionEnd(lines, fenced, 0);
-	if (endIndex < 0) return false; // unclosed — leave as plain text
+	const endIndex = scanRegion(state, startLine, endLine);
+	if (endIndex === null) return false;
 	// `silent` is markdown-it's terminator probe (the paragraph rule asks every
 	// ruler "does a block start on this line?"). Answering false here made a
 	// `%% col-start %%` line directly after a paragraph line get swallowed as
@@ -88,6 +84,29 @@ function columnsBlockRule(
 	token.map = [startLine, startLine + endIndex];
 	state.line = startLine + endIndex + 1;
 	return true;
+}
+
+/**
+ * Line index (relative to `startLine`) of the `%% col-end %%` closing a region
+ * opened at `startLine`, or null when this line does not open a closed region.
+ *
+ * Fail-open: a throw inside the scan (fenced-code masking, marker grammar, a
+ * broken patch to this file) must not escape into the preview renderer — an
+ * escaping exception blanks the whole document. Returning null leaves the lines
+ * to markdown-it's own rules, so they render as ordinary text.
+ */
+function scanRegion(state: BlockRuleState, startLine: number, endLine: number): number | null {
+	try {
+		const lines = blockLines(state, startLine, endLine);
+		const fenced = fencedLineMask(lines);
+		const first = markerLineAt(lines, fenced, 0);
+		if (first === null || !START_RE.test(first)) return null;
+		const endIndex = findRegionEnd(lines, fenced, 0);
+		return endIndex < 0 ? null : endIndex;
+	} catch (error) {
+		logRenderFailure("columns:scan", error);
+		return null;
+	}
 }
 
 function createColumnsRenderer(md: MarkdownIt): MarkdownItLike["renderer"]["rules"][string] {

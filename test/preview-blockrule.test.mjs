@@ -71,9 +71,15 @@ const columnBlocks = (count) =>
   ).join("\n\n");
 const timeRender = (md, src, iterations) => {
   md.render(src, {}); // warm the rules/JIT
-  const start = performance.now();
-  for (let i = 0; i < iterations; i++) md.render(src, {});
-  return (performance.now() - start) / iterations;
+  // Report the best of three rounds: a GC pause or a busy CI box must not be
+  // mistaken for a complexity regression.
+  let best = Infinity;
+  for (let round = 0; round < 3; round++) {
+    const start = performance.now();
+    for (let i = 0; i < iterations; i++) md.render(src, {});
+    best = Math.min(best, (performance.now() - start) / iterations);
+  }
+  return best;
 };
 
 /** `data-line` values in DOM order for containers / columns / column paragraphs. */
@@ -189,6 +195,47 @@ test("column HTML cache: dynamic columns are never cached", () => {
   md.render(doc, {});
   const stats = getColumnHtmlCacheStats(md);
   assert.equal(stats.size, 1, "only the plain column is cacheable");
+});
+
+test("render failure: a throwing region falls back to its own source", () => {
+  const md = createMd(true);
+  // Throw once while rendering column content (`amcDepth === 1` is only set for
+  // a column's nested render), which is the failure the preview has to survive.
+  let fired = 0;
+  md.core.ruler.push("boom", (state) => {
+    if (fired === 0 && state.env && state.env.amcDepth === 1 && state.src.includes("BOOM")) {
+      fired += 1;
+      throw new Error("boom");
+    }
+  });
+
+  const good = "%% col-start %%\n%% col-break %%\nGOOD A\n%% col-break %%\nGOOD B\n%% col-end %%";
+  const bad = "%% col-start %%\n%% col-break %%\nBOOM A\n%% col-break %%\nBOOM B\n%% col-end %%";
+  const html = md.render(`${good}\n\n${bad}\n`, {});
+
+  assert.equal((html.match(/class="column-item"/g) ?? []).length, 2, "the healthy region still renders as columns");
+  assert.ok(html.includes("GOOD A") && html.includes("GOOD B"));
+  assert.ok(html.includes("BOOM A") && html.includes("BOOM B"), "the failed region keeps its text");
+  assert.ok(!html.includes("amc-parse-fallback"), "a failure is not turned into markup");
+  assert.ok(!/boom/i.test(html.replace(/BOOM/g, "")), "no error text in the document");
+});
+
+test("render failure: a broken plain render keeps the source escaped", () => {
+  const md = createMd(true);
+  // Fail both the column render and the plain-markdown fallback.
+  md.core.ruler.push("boom", (state) => {
+    const inColumn = state.env && state.env.amcDepth === 1;
+    const inFallback = state.env && state.env.__amcPassthrough === true;
+    if ((inColumn || inFallback) && state.src.includes("EXPLODE")) throw new Error("boom");
+  });
+
+  const html = md.render(
+    "%% col-start %%\n%% col-break %%\nEXPLODE <b>x</b>\n%% col-break %%\nsecond\n%% col-end %%\n",
+    {},
+  );
+  assert.ok(html.includes("<pre>"), "last resort is a pre block");
+  assert.ok(html.includes("EXPLODE &lt;b&gt;x&lt;/b&gt;"), "the source is escaped, not interpreted");
+  assert.ok(!html.includes("amc-parse-fallback"));
 });
 
 test("block ruler: ordinary documents do not pay a growing probe cost", () => {

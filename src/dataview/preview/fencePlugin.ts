@@ -19,11 +19,11 @@
  * and must stay unit-testable.
  */
 import type MarkdownIt from "markdown-it";
+import {logRenderFailure} from "../../preview/renderLog";
 import {markDynamicContent} from "../../preview/renderScope";
 import {escapeHtml} from "../../preview/htmlEscape";
 import type {MarkdownItLike} from "../../preview/markdownItTypes";
 import type {BlockResultProvider, BlockState, DataviewRenderEnv} from "../types";
-import {renderErrorHtml} from "../render/html";
 
 const FENCE_LANGS = new Set(["dataview", "dataviewjs"]);
 const installed = new WeakSet<object>();
@@ -97,14 +97,26 @@ export function installDataviewFences(md: MarkdownIt, opts: DataviewFenceOptions
 		const renderEnv = (env ?? {}) as DataviewRenderEnv;
 		renderEnv[DV_BLOCK_LINE_ENV_KEY] = token.map?.[0] ?? 0;
 
+		// Failure policy (block *and* inline): never turn a failure into document
+		// markup. The preview shows the author's original source — here the fence
+		// it was written as — and the detail goes to the Dataview log/stats.
+		const fallbackToSource = (): string => (prev ? prev(tokens, idx, options, env, self) : defaultFenceHtml(token));
+
 		let state: BlockState;
 		try {
 			state = opts.provider.getBlock(renderEnv, lang as DataviewFenceLang, token.content);
-		} catch (e) {
-			// Error isolation: one throwing provider call must not blank the page.
-			state = {status: "error", html: renderErrorHtml(e instanceof Error ? e.message : String(e))};
+		} catch (error) {
+			// A throwing provider must not blank the page either.
+			logRenderFailure("dataview:block", error);
+			return fallbackToSource();
 		}
-		// data-dv-state lets tests/support inspect ready|pending|error without
+		if (state.status === "error") {
+			// The service already logged the failure with path/line; one line here is
+			// enough to correlate it with the block that fell back.
+			logRenderFailure("dataview:block", "the block failed (see the Dataview log)");
+			return fallbackToSource();
+		}
+		// data-dv-state lets tests/support inspect ready|pending without
 		// re-parsing the inner HTML; the wrapper div is also the CSS anchor.
 		return `<div class="dataview-block" data-dv-lang="${lang}" data-dv-state="${state.status}">${state.html}</div>\n`;
 	};
@@ -165,9 +177,14 @@ export function installDataviewInlines(md: MarkdownIt, opts: DataviewInlineOptio
 		let state: BlockState;
 		try {
 			state = opts.provider.getInline(env as DataviewRenderEnv, kind, code);
-		} catch (e) {
-			// Error isolation: one throwing provider call must not blank the page.
-			state = {status: "error", html: renderErrorHtml(e instanceof Error ? e.message : String(e))};
+		} catch (error) {
+			// Same policy as blocks: the original code span, not an error box.
+			logRenderFailure("dataview:inline", error);
+			return fallback();
+		}
+		if (state.status === "error") {
+			logRenderFailure("dataview:inline", "the inline query failed (see the Dataview log)");
+			return fallback();
 		}
 		return (
 			`<span class="dataview-inline" data-dv-lang="${kind}" data-dv-state="${state.status}">` +

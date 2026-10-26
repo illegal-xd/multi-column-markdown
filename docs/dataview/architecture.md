@@ -81,7 +81,7 @@ Two design consequences worth stating explicitly:
   `dv` for fences and `dvi` for inline spans, so identical sources in the two
   forms never share a result (a fence emits ops, an inline span emits a value).
   Everything else — the index-ready hold, in-flight dedup, wave accounting, the
-  timeout path and the error isolation — is literally the same code
+  timeout path and the failure policy — is literally the same code
   (`DataviewService.resolve`), so an inline failure cannot affect a block and vice
   versa.
 * **Two syntax surfaces, one worker protocol.** Fences become `dql`/`dataviewjs`

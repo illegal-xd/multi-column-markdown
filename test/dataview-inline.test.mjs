@@ -167,7 +167,7 @@ test("inline A6: custom prefixes (jsInlinePrefix/inlinePrefix) are honoured", ()
   ]);
 });
 
-test("inline A7: a throwing provider yields an inline error span, not a thrown render", () => {
+test("inline A7: a throwing provider falls back to the original code span", () => {
   const md = new MarkdownIt();
   installDataviewInlines(md, {
     provider: {
@@ -179,9 +179,11 @@ test("inline A7: a throwing provider yields an inline error span, not a thrown r
   });
 
   const out = md.renderInline("x `= 1` y");
-  assert.ok(out.includes('data-dv-state="error"'), out);
-  assert.ok(out.includes("provider exploded"));
-  assert.ok(out.includes('class="dataview-inline"'));
+  // Failure policy: the sentence survives, the query renders as the code span
+  // the author wrote — no error markup, no error text.
+  assert.ok(out.includes("<code>= 1</code>"), out);
+  assert.ok(!out.includes("provider exploded"));
+  assert.ok(!out.includes("dataview-inline"));
 });
 
 test("inline A8: installDataviewInlines is idempotent per markdown-it instance", () => {

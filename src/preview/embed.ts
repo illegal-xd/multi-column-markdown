@@ -17,6 +17,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import type MarkdownIt from "markdown-it";
 import {escapeHtml} from "./htmlEscape";
+import {logRenderFailure} from "./renderLog";
 
 export const MAX_EMBED_DEPTH = 8;
 export const MAX_EMBEDS_PER_RENDER = 50;
@@ -121,7 +122,14 @@ export function renderMarkdownEmbed(md: MarkdownIt, target: string, env: unknown
 	state.stack.push(file);
 	try {
 		const nextEnv = {...(env as object), amcEmbedDepth: depth + 1};
-		return `<div class="amc-embed-markdown">${md.render(content, nextEnv)}</div>`;
+		try {
+			return `<div class="amc-embed-markdown">${md.render(content, nextEnv)}</div>`;
+		} catch (error) {
+			// A failing embed render must not blank the page: show the reference as
+			// written and keep the detail in the log.
+			logRenderFailure("embed:render", error);
+			return escapeHtml(`![[${target}]]`);
+		}
 	} finally {
 		state.stack.pop();
 	}

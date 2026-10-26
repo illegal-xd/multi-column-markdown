@@ -11,6 +11,7 @@ import {findColumnRegions} from "../core/parser";
 import {groupColumns, type ColumnGroup} from "../core/groups";
 import type {ColumnData, ColumnRegion} from "../types";
 import {columnCacheKey, getCachedColumnHtml, setCachedColumnHtml} from "./columnHtmlCache";
+import {logRenderFailure} from "./renderLog";
 import {getRenderScope} from "./renderScope";
 import {escapeHtml} from "./htmlEscape";
 import {applyColumnStyleVars, applyContainerStyleVars, resolveColor} from "./styleVars";
@@ -39,19 +40,52 @@ export function renderColumns(raw: string, md: MarkdownIt, env: unknown, depth: 
 	if (depth > MAX_NESTING_DEPTH) return renderPassthrough(raw, md, env, baseLine);
 	const regions = findColumnRegions(raw);
 	if (regions.length === 0) return renderPassthrough(raw, md, env, baseLine);
-	return regions.map((region) => renderRegion(region, md, env, depth, baseLine)).join("\n");
+
+	const parts: string[] = [];
+	for (const region of regions) {
+		try {
+			parts.push(renderRegion(region, md, env, depth, baseLine));
+		} catch (error) {
+			// A region that cannot be laid out must not take the document down (an
+			// escaping exception would blank the whole preview). Show just that
+			// region's source as ordinary Markdown, with no error markup: VS Code
+			// then renders it like any other block.
+			logRenderFailure("columns:region", error);
+			parts.push(renderSourceAsMarkdown(raw.slice(region.from, region.to), md, env, baseLine + region.lineStart));
+		}
+	}
+	return parts.join("\n");
 }
 
-/** Render raw source without letting the column rule fire again. */
-function renderPassthrough(raw: string, md: MarkdownIt, env: unknown, baseLine = 0): string {
+/**
+ * Render source as plain Markdown — no column layout, **no degradation marker**.
+ * This is the failure path: the author gets their text back with normal
+ * formatting. The passthrough env flag keeps the column rule from re-entering
+ * (which would loop on the failure that brought us here).
+ */
+function renderSourceAsMarkdown(raw: string, md: MarkdownIt, env: unknown, baseLine: number): string {
 	const holder = (typeof env === "object" && env !== null ? env : {}) as Record<string, unknown>;
 	const previous = holder[PASSTHROUGH_ENV_KEY];
 	holder[PASSTHROUGH_ENV_KEY] = true;
 	try {
-		return `<div class="amc-parse-fallback">${rebaseDataLines(md.render(raw, holder), baseLine)}</div>`;
+		return rebaseDataLines(md.render(raw, holder), baseLine);
+	} catch (error) {
+		// Even the plain render threw (a broken third-party rule): keep the text,
+		// escaped, rather than dropping it or reporting an error.
+		logRenderFailure("columns:plain", error);
+		return `<pre>${escapeHtml(raw)}</pre>`;
 	} finally {
 		holder[PASSTHROUGH_ENV_KEY] = previous;
 	}
+}
+
+/**
+ * Render raw source without letting the column rule fire again, keeping the
+ * visible degradation marker. Used for *expected* degradation (unclosed region,
+ * nesting past the cap), not for failures — those use `renderSourceAsMarkdown`.
+ */
+function renderPassthrough(raw: string, md: MarkdownIt, env: unknown, baseLine = 0): string {
+	return `<div class="amc-parse-fallback">${renderSourceAsMarkdown(raw, md, env, baseLine)}</div>`;
 }
 
 interface RenderContext {

@@ -175,7 +175,7 @@ test("fence A3: isEnabled:false sends both dataview fences down the native rende
   assert.equal(providerCalls, 0);
 });
 
-test("fence A4: a throwing provider renders an error block and never throws", () => {
+test("fence A4: a throwing provider falls back to the original fence", () => {
   const md = new MarkdownIt();
   installDataviewFences(md, {
     provider: {
@@ -189,8 +189,12 @@ test("fence A4: a throwing provider renders an error block and never throws", ()
   assert.doesNotThrow(() => {
     out = md.render([FENCE + "dataviewjs", "x", FENCE, ""].join("\n"));
   });
-  assert.ok(out.includes('<div class="dataview-block" data-dv-lang="dataviewjs" data-dv-state="error">'));
-  assert.ok(out.includes("provider &lt;boom&gt;"), out);
+  // Failure policy: no error markup — the author's fence is rendered by the
+  // default renderer, exactly as it would be without the dataview plugin.
+  assert.ok(out.includes('<code class="language-dataviewjs">'), out);
+  assert.ok(!out.includes("dataview-error"), out);
+  assert.ok(!out.includes("data-dv-state"), out);
+  assert.ok(!out.includes("provider &lt;boom&gt;"), "the error must not reach the document");
 });
 
 test("fence A5: provider receives the 0-based fence start line and the raw fence code", () => {

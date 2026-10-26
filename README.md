@@ -65,6 +65,11 @@ Right column
 | `%% col-break(:tokens) %%` | Begin a new column (width + style tokens) |
 | `%% col-end %%` | End the column block |
 
+A block that cannot be laid out (unclosed markers, nesting past the cap) keeps
+its text visible as ordinary Markdown, and a block that fails to render for any
+other reason falls back to plain Markdown for that block only — the preview
+never replaces content with an error message.
+
 ### Style tokens
 
 | Token | Property | Values |
