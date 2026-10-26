@@ -552,7 +552,10 @@ export class MomentValue {
 			case "week": return this.week();
 			case "isoWeek": return this.isoWeek();
 			case "quarter": return this.quarter();
-			case "date": case "day": return this.date();
+			// "day" is the weekday index here (handled above); only "date" is the
+			// day of the month. Verified against moment@2.29.4: `get("day")` → 1 for
+			// a Monday, `get("date")` → 15.
+			case "date": return this.date();
 			default: return this.date();
 		}
 	}
@@ -574,7 +577,11 @@ export class MomentValue {
 		switch (unitOf(unit)) {
 			case "year": return this.become(this.withFields({year: v, date: Math.min(this.fields().date, daysInMonth(v, this.fields().month))}));
 			case "month": return this.become(this.withFields({month: v, date: Math.min(this.fields().date, daysInMonth(this.fields().year, v))}));
-			case "date": case "day": return this.become(this.withFields({date: v}));
+			// Moment's two day setters differ: `date` sets the day of the month,
+			// `day` moves within the current week (same as `day(v)`). Verified
+			// against moment@2.29.4: 2024-01-15 (Mon) set("day", 3) → 2024-01-17.
+			case "date": return this.become(this.withFields({date: v}));
+			case "day": return this.day(v);
 			case "hour": return this.become(this.withFields({hour: v}));
 			case "minute": return this.become(this.withFields({minute: v}));
 			case "second": return this.become(this.withFields({second: v}));

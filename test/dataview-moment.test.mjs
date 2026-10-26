@@ -190,6 +190,15 @@ test("fields: Moment indexing (0-based month, Sunday-based day) and derived valu
   assert.equal(moment.utc("2024-01-15").get("month"), 0);
   assert.equal(moment.utc("2024-01-15").set("date", 20).format("YYYY-MM-DD"), "2024-01-20");
   assert.equal(moment.utc("2024-01-15").set({hour: 5, minute: 6}).format("HH:mm"), "05:06");
+  // "day" and "date" are different units in Moment (verified against 2.29.4):
+  // day = weekday index, date = day of month; set("day", n) moves within the
+  // current week exactly like day(n).
+  assert.equal(moment.utc("2024-01-15").get("day"), 1, "Monday");
+  assert.equal(moment.utc("2024-01-15").get("date"), 15);
+  assert.equal(moment.utc("2024-01-15").get("d"), 1);
+  assert.equal(moment.utc("2024-01-15").set("day", 3).format("YYYY-MM-DD"), "2024-01-17");
+  assert.equal(moment.utc("2024-01-15").set("d", 3).format("YYYY-MM-DD"), "2024-01-17");
+  assert.equal(moment.utc("2024-01-15").set("date", 3).format("YYYY-MM-DD"), "2024-01-03");
   assert.deepEqual(m.toArray(), [2024, 0, 15, 8, 5, 7, 42]);
   assert.equal(m.toObject().month, 0);
   assert.equal(m.toJSON(), "2024-01-15T08:05:07.042Z");
